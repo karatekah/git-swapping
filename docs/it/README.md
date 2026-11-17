@@ -10,9 +10,9 @@
 
 Una piccola CLI PowerShell per separare le identità Git personali e universitarie, repository per repository.
 
-[![v0.1.0-alpha.1](https://img.shields.io/badge/release-v0.1.0--alpha.1-256b56?style=flat-square)](../releases/v0.1.0-alpha.1.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/piattaforma-Windows-64748b?style=flat-square)](#requisiti)
+[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/piattaforma-Windows-64748b?style=flat-square)](#requisiti)
 
-[Avvio rapido](#avvio-rapido) · [Comandi](#comandi) · [Note alfa](../releases/v0.1.0-alpha.1.md) · [Segnala un errore](https://github.com/karatekah/GithubSwapping/issues)
+[Avvio rapido](#avvio-rapido) · [Comandi](#comandi) · [Note alfa](../releases/v0.1.0-alpha.2.md) · [Segnala un errore](https://github.com/karatekah/GithubSwapping/issues)
 
 </div>
 
@@ -115,7 +115,7 @@ I test coprono entrambi i profili, ripetizione, proprietario errato, URL push se
 
 ## Documentazione e prossimi passi
 
-- [Ambito e verifica dell'alfa](../releases/v0.1.0-alpha.1.md) · [Changelog](../../CHANGELOG.md).
+- [Ambito e verifica dell'alfa](../releases/v0.1.0-alpha.2.md) · [Changelog](../../CHANGELOG.md).
 - Prossimi passi: riscontri su altri PC Windows, un supporto all'installazione e associazioni dei proprietari più flessibili. SSH e altri provider richiedono una progettazione specifica dell'autenticazione.
 
 Se sposti la copia, aggiorna il percorso in `$PROFILE`. Salva una copia di `profiles.psd1` prima di eliminarla: Git non archivia i tuoi account.

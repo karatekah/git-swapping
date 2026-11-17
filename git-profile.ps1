@@ -35,7 +35,7 @@ function git-profile {
     }
 
     if ($Action -eq 'help') {
-        Write-Host 'git-profile v0.1.0-alpha.1' -ForegroundColor Cyan
+        Write-Host 'git-profile v0.1.0-alpha.2' -ForegroundColor Cyan
         Write-Host 'Uso: git-profile list | current | use PERFIL | check | status'
         return
     }
