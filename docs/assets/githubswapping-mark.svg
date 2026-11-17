@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>GithubSwapping terminal mark</title>
+  <rect x="4" y="4" width="88" height="88" rx="22" fill="#101923"/>
+  <path d="M24 32L35 42L24 52M42 54H58" stroke="#7AE2B5" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M65 24V47C65 60 73 58 73 70M65 47C65 60 57 58 57 70" stroke="#A6B8CF" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="65" cy="24" r="5" fill="#7AE2B5"/>
+  <circle cx="57" cy="73" r="5" fill="#7AE2B5"/>
+  <circle cx="73" cy="73" r="5" fill="#A6B8CF"/>
+</svg>
