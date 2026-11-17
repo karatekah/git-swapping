@@ -1,0 +1,6 @@
+profiles.psd1
+*.bak
+*.log
+.test-results/
+.DS_Store
+Thumbs.db

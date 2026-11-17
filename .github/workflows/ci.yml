@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Test profiles and failure paths
+        shell: ${{ matrix.shell }}
+        run: ./tests/git-profile.Tests.ps1
