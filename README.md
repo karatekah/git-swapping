@@ -10,9 +10,9 @@
 
 A small PowerShell CLI to keep personal and university Git identities separate, repository by repository.
 
-[![v0.1.0-alpha.1](https://img.shields.io/badge/release-v0.1.0--alpha.1-256b56?style=flat-square)](docs/releases/v0.1.0-alpha.1.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/platform-Windows-64748b?style=flat-square)](#requirements) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-365b8c?style=flat-square)](#requirements)
+[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](docs/releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/platform-Windows-64748b?style=flat-square)](#requirements) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-365b8c?style=flat-square)](#requirements)
 
-[Quick start](#quick-start) · [Commands](#commands) · [Alpha notes](docs/releases/v0.1.0-alpha.1.md) · [Report a bug](https://github.com/karatekah/GithubSwapping/issues)
+[Quick start](#quick-start) · [Commands](#commands) · [Alpha notes](docs/releases/v0.1.0-alpha.2.md) · [Report a bug](https://github.com/karatekah/GithubSwapping/issues)
 
 </div>
 
@@ -124,7 +124,7 @@ Tests isolate Git configuration and identities, exercise both profiles and verif
 ## Documentation and next steps
 
 - [Spanish overview](docs/es/README.md) · [Italian overview](docs/it/README.md)
-- [Alpha scope and verification](docs/releases/v0.1.0-alpha.1.md)
+- [Alpha scope and verification](docs/releases/v0.1.0-alpha.2.md)
 - [Changelog](CHANGELOG.md)
 - Planned: broader Windows usage feedback, an installation helper and more flexible owner mappings. SSH and other providers need separate authentication design before implementation.
 

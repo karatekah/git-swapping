@@ -8,13 +8,17 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  windows-powershell:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Test profiles and failure paths
-        shell: ${{ matrix.shell }}
+        shell: powershell
+        run: ./tests/git-profile.Tests.ps1
+  powershell-7:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Test profiles and failure paths
+        shell: pwsh
         run: ./tests/git-profile.Tests.ps1

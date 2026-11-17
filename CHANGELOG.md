@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.0-alpha.2
+
+- Run Windows PowerShell 5.1 and PowerShell 7 in explicit CI jobs, fixing workflow validation before tests start.
+- Preserve alpha.1 history and update the current version references.
+
 ## v0.1.0-alpha.1
 
 - Extract the existing PowerShell function into a versioned script loaded from `$PROFILE`.
