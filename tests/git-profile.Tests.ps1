@@ -4,7 +4,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $tempParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $testRoot = Join-Path $tempParent ('git-profile-tests-' + [guid]::NewGuid().ToString('N'))
 $savedEnvironment = @{}
-$environmentNames = @((Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' }).Name) + @('EMAIL')
+$environmentNames = @(Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' } | ForEach-Object { $_.Name }) + @('EMAIL')
 foreach ($name in $environmentNames) {
     $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
     [Environment]::SetEnvironmentVariable($name, $null, 'Process')

@@ -3,6 +3,7 @@
 ## v0.1.0-alpha.2
 
 - Run Windows PowerShell 5.1 and PowerShell 7 in explicit CI jobs, fixing workflow validation before tests start.
+- Start the isolated test runner correctly when no Git environment variables are present.
 - Preserve alpha.1 history and update the current version references.
 
 ## v0.1.0-alpha.1
