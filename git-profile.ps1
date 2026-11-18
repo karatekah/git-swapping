@@ -15,7 +15,7 @@ function git-profile {
         param([string[]]$GitArguments, [switch]$AllowMissing)
         $consoleEncoding = [Console]::OutputEncoding
         $restoreEncoding = $consoleEncoding.CodePage -ne 65001
-        # Git devuelve nombres de ramas y remotos en UTF-8.
+        # Git returns branch and remote names in UTF-8.
         if ($restoreEncoding) { [Console]::OutputEncoding = [Text.Encoding]::UTF8 }
         try {
             $output = @(& git @GitArguments 2>&1)
@@ -26,7 +26,7 @@ function git-profile {
         }
         if ($code -ne 0) {
             if ($AllowMissing -and $code -eq 1) { return }
-            throw "Git fallo (codigo $code): $($output -join [Environment]::NewLine)"
+            throw "Git failed (exit code $code): $($output -join [Environment]::NewLine)"
         }
         $output | ForEach-Object { $_.ToString() }
     }
@@ -34,7 +34,7 @@ function git-profile {
     function Read-ProfileRemote {
         param([string]$Url)
         if ($Url -notmatch '^https://(?:(?<Account>[a-z0-9-]+)@)?github\.com/(?<Owner>[a-z0-9-]+)/(?<Repo>[a-z0-9_.-]+?)(?:\.git)?/?$') {
-            throw 'Esta alfa solo admite origin HTTPS de github.com, sin claves, parametros ni fragmentos.'
+            throw 'This alpha only supports HTTPS origin URLs on github.com, without passwords, query strings, or fragments.'
         }
         [pscustomobject]@{
             Account = $Matches.Account
@@ -45,19 +45,19 @@ function git-profile {
 
     if ($Action -eq 'help') {
         Write-Host 'git-profile v0.1.0-alpha.2' -ForegroundColor Cyan
-        Write-Host 'Uso: git-profile list | current | use PERFIL | check | status'
+        Write-Host 'Usage: git-profile list | current | use PROFILE | check | status'
         return
     }
 
     if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
-        throw 'No se encontro Git en PATH.'
+        throw 'Git was not found on PATH.'
     }
     $configPath = Join-Path $PSScriptRoot 'profiles.psd1'
     if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-        throw "Falta profiles.psd1. Copia profiles.example.psd1 y configura tus cuentas en $PSScriptRoot."
+        throw "profiles.psd1 is missing. Copy profiles.example.psd1 and configure your accounts in $PSScriptRoot."
     }
     $profiles = Import-PowerShellDataFile -LiteralPath $configPath -ErrorAction Stop
-    if ($profiles.Count -eq 0) { throw 'No hay perfiles configurados.' }
+    if ($profiles.Count -eq 0) { throw 'No profiles are configured.' }
     $accounts = @()
     foreach ($key in $profiles.Keys) {
         $p = $profiles[$key]
@@ -66,30 +66,30 @@ function git-profile {
             $p.Email -isnot [string] -or $p.Email -notmatch '^[^\s<>@]+@[^\s<>@]+$' -or
             $p.GitHub -isnot [string] -or $p.GitHub -notmatch '^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$' -or
             $p.Name -match '[\r\n<>]' -or $accounts -contains $p.GitHub) {
-            throw "Perfil '$key' invalido o cuenta GitHub duplicada. Revisa profiles.psd1."
+            throw "Invalid profile '$key' or duplicate GitHub account. Check profiles.psd1."
         }
         $accounts += $p.GitHub
     }
 
     if ($Action -eq 'list') {
-        Write-Host 'PERFILES DISPONIBLES' -ForegroundColor Cyan
+        Write-Host 'AVAILABLE PROFILES' -ForegroundColor Cyan
         foreach ($key in ($profiles.Keys | Sort-Object)) {
             $p = $profiles[$key]
-            Write-Host "`nPerfil : $key" -ForegroundColor Yellow
-            Write-Host "Nombre : $($p.Name)`nEmail  : $($p.Email)`nGitHub : $($p.GitHub)"
+            Write-Host "`nProfile : $key" -ForegroundColor Yellow
+            Write-Host "Name   : $($p.Name)`nEmail  : $($p.Email)`nGitHub : $($p.GitHub)"
         }
         return
     }
     if ($Action -eq 'use' -and ([string]::IsNullOrWhiteSpace($Profile) -or -not $profiles.ContainsKey($Profile))) {
-        throw 'Perfil no encontrado. Usa: git-profile list'
+        throw 'Profile not found. Run git-profile list.'
     }
     if ((Invoke-ProfileGit -GitArguments @('rev-parse', '--is-inside-work-tree')) -ne 'true') {
-        throw 'Entra en un repositorio de trabajo antes de ejecutar este comando.'
+        throw 'Run this command inside a Git working tree.'
     }
     if ($Action -eq 'use') {
         $gitConfigPath = Invoke-ProfileGit -GitArguments @('rev-parse', '--path-format=absolute', '--git-path', 'config')
         if ((Get-Item -LiteralPath $gitConfigPath).Attributes -band [IO.FileAttributes]::ReparsePoint) {
-            throw 'Esta alfa no modifica archivos config que sean enlaces.'
+            throw 'This alpha cannot modify a linked Git config file.'
         }
         $originalConfig = [IO.File]::ReadAllBytes($gitConfigPath)
     }
@@ -99,12 +99,12 @@ function git-profile {
     $rawFetch = @(Invoke-ProfileGit -GitArguments @('config', '--get-all', 'remote.origin.url') -AllowMissing)
     $rawPush = @(Invoke-ProfileGit -GitArguments @('config', '--get-all', 'remote.origin.pushurl') -AllowMissing)
     if ($rawFetch.Count -ne 1 -or $rawPush.Count -gt 1) {
-        throw 'Se requiere origin con una URL de descarga y, como maximo, una URL de envio.'
+        throw 'The origin remote must have one fetch URL and at most one explicit push URL.'
     }
     $fetch = @(Invoke-ProfileGit -GitArguments @('remote', 'get-url', '--all', 'origin'))
     $push = @(Invoke-ProfileGit -GitArguments @('remote', 'get-url', '--push', '--all', 'origin'))
     if ($fetch.Count -ne 1 -or $push.Count -ne 1) {
-        throw 'Esta alfa requiere una sola URL efectiva de descarga y de envio.'
+        throw 'This alpha requires exactly one effective fetch URL and one effective push URL.'
     }
 
     $matchedProfile = $null
@@ -115,9 +115,9 @@ function git-profile {
         }
     }
     if ($Action -in @('current', 'status')) {
-        Write-Host 'CONFIGURACION LOCAL DEL REPOSITORIO' -ForegroundColor Cyan
-        Write-Host "Nombre : $name`nEmail  : $email`nFetch de origin : $($fetch[0])`nPush de origin  : $($push[0])"
-        Write-Host "Perfil : $(if ($matchedProfile) { $matchedProfile } else { 'sin coincidencia' })"
+        Write-Host 'LOCAL REPOSITORY CONFIGURATION' -ForegroundColor Cyan
+        Write-Host "Name   : $name`nEmail  : $email`nOrigin fetch : $($fetch[0])`nOrigin push  : $($push[0])"
+        Write-Host "Profile : $(if ($matchedProfile) { $matchedProfile } else { 'no match' })"
         if ($Action -eq 'current') { return }
     }
 
@@ -130,21 +130,21 @@ function git-profile {
         }
 
         foreach ($key in $pushRemoteKeys) {
-            # El terminador NUL distingue un valor vacio de una clave ausente.
+            # The NUL terminator distinguishes an empty value from a missing key.
             $value = Invoke-ProfileGit -GitArguments @('config', '--null', '--get', $key) -AllowMissing
             if ($null -eq $value) { continue }
 
             $pushRemote = ($value -join "`n").TrimEnd([char]0)
             if ($pushRemote -cne 'origin') {
-                $destination = 'un destino sin remoto registrado'
+                $destination = 'a destination without a configured remote'
                 if ((Invoke-ProfileGit -GitArguments @('remote')) -ccontains $pushRemote) {
-                    $destination = "el remoto '$pushRemote'"
+                    $destination = "remote '$pushRemote'"
                 }
-                throw "git push sin argumentos selecciona $destination por $key. El perfil solo valida origin."
+                throw "Running git push without arguments selects $destination because of $key. The profile only validates origin."
             }
             break
         }
-        if ($Action -eq 'status') { Write-Host 'Remoto de git push : origin' }
+        if ($Action -eq 'status') { Write-Host 'Default push remote : origin' }
     }
 
     if ($Action -eq 'use') {
@@ -152,7 +152,7 @@ function git-profile {
         $expected = $p.GitHub
     }
     else {
-        if (-not $matchedProfile) { throw 'La identidad local no coincide con ningun perfil.' }
+        if (-not $matchedProfile) { throw 'The local identity does not match any configured profile.' }
         $p = $profiles[$matchedProfile]
         $expected = $p.GitHub
     }
@@ -161,13 +161,13 @@ function git-profile {
     foreach ($url in @($rawFetch + $rawPush + $fetch + $push)) {
         $remote = Read-ProfileRemote -Url $url
         if ($remote.Owner -ne $expected) {
-            throw "El propietario '$($remote.Owner)' no corresponde a la cuenta '$expected'. No se cambio el repositorio."
+            throw "Repository owner '$($remote.Owner)' does not match account '$expected'. No changes were made."
         }
         $parsed += $remote
     }
     foreach ($remote in $parsed) {
         if ($remote.Repo -ne $parsed[0].Repo) {
-            throw 'Las URLs de descarga y envio deben apuntar al mismo repositorio.'
+            throw 'The fetch and push URLs must point to the same repository.'
         }
     }
 
@@ -175,12 +175,12 @@ function git-profile {
         $lockPath = $gitConfigPath + '.lock'
         $ownsLock = $false
         try {
-            # El bloqueo evita cambios parciales y respeta a otros procesos de Git.
+            # The lock prevents partial writes and keeps other Git processes from writing concurrently.
             $stream = [IO.File]::Open($lockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
             $ownsLock = $true
             try {
                 if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($gitConfigPath)) -ne [Convert]::ToBase64String($originalConfig)) {
-                    throw 'La configuracion cambio durante la validacion. Vuelve a ejecutar el comando.'
+                    throw 'The configuration changed during validation. Run the command again.'
                 }
                 $stream.Write($originalConfig, 0, $originalConfig.Length)
             }
@@ -202,29 +202,29 @@ function git-profile {
                 Remove-Item -LiteralPath $lockPath -Force -ErrorAction Stop
             }
         }
-        Write-Host "PERFIL CONFIGURADO: $Profile" -ForegroundColor Green
-        Write-Host "Nombre : $($p.Name)`nEmail  : $($p.Email)`nGitHub : $expected"
+        Write-Host "PROFILE CONFIGURED: $Profile" -ForegroundColor Green
+        Write-Host "Name   : $($p.Name)`nEmail  : $($p.Email)`nGitHub : $expected"
         return
     }
 
     foreach ($remote in $parsed) {
         if ($remote.Account -ne $expected) {
-            throw "El usuario de una URL no coincide con '$expected'. Ejecuta git-profile use $matchedProfile."
+            throw "The username in a remote URL does not match '$expected'. Run git-profile use $matchedProfile."
         }
     }
     $effectiveName = Invoke-ProfileGit -GitArguments @('config', '--get', 'user.name') -AllowMissing
     $effectiveEmail = Invoke-ProfileGit -GitArguments @('config', '--get', 'user.email') -AllowMissing
     if ($effectiveName -ne $p.Name -or $effectiveEmail -ne $p.Email) {
-        throw 'Otra configuracion sobrescribe la identidad local. Revisa git config --show-origin.'
+        throw 'Another configuration setting overrides the local identity. Check git config --show-origin.'
     }
     foreach ($role in @('AUTHOR', 'COMMITTER')) {
         $ident = Invoke-ProfileGit -GitArguments @('var', "GIT_$($role)_IDENT")
         if ($ident -notmatch '^(?<Name>.*) <(?<Email>[^<>]+)> \d+ [+-]\d{4}$' -or
             $Matches.Name -ne $p.Name -or $Matches.Email -ne $p.Email) {
-            throw "La identidad efectiva de $role difiere del perfil. Revisa author.*, committer.* y las variables de entorno de Git."
+            throw "The effective $role identity does not match the profile. Check author.*, committer.*, and the Git environment variables."
         }
     }
-    Write-Host "OK  Perfil : $matchedProfile`nOK  GitHub : $expected`nOK  Nombre : $name`nOK  Email  : $email" -ForegroundColor Green
-    Write-Host "OK  Fetch de origin : $($fetch[0])`nOK  Push de origin  : $($push[0])" -ForegroundColor Green
-    Write-Host 'Configuracion coherente. La autenticacion y los permisos remotos se comprueban por separado.'
+    Write-Host "OK  Profile : $matchedProfile`nOK  GitHub  : $expected`nOK  Name    : $name`nOK  Email   : $email" -ForegroundColor Green
+    Write-Host "OK  Origin fetch : $($fetch[0])`nOK  Origin push  : $($push[0])" -ForegroundColor Green
+    Write-Host 'Configuration checks passed. Verify authentication and remote permissions separately.'
 }

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Check the remote selected by `git push` with no arguments and report the overriding Git setting when the destination differs from `origin`.
+- Use English for command output, diagnostics and configuration examples.
 
 ## v0.1.0-alpha.2
 

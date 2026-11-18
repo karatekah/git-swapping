@@ -1,12 +1,12 @@
 @{
     personal = @{
-        Name   = 'Tu nombre personal'
+        Name   = 'Your personal name'
         Email  = 'personal@example.com'
-        GitHub = 'tu-cuenta-personal'
+        GitHub = 'your-personal-account'
     }
     unsa = @{
-        Name   = 'Tu nombre universitario'
-        Email  = 'universidad@example.com'
-        GitHub = 'tu-cuenta-universitaria'
+        Name   = 'Your university name'
+        Email  = 'university@example.com'
+        GitHub = 'your-university-account'
     }
 }
