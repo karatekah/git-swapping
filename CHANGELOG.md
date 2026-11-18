@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Check the remote selected by `git push` with no arguments and report the overriding Git setting when the destination differs from `origin`.
+
 ## v0.1.0-alpha.2
 
 - Run Windows PowerShell 5.1 and PowerShell 7 in explicit CI jobs, fixing workflow validation before tests start.

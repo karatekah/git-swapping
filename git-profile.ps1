@@ -13,8 +13,17 @@ function git-profile {
 
     function Invoke-ProfileGit {
         param([string[]]$GitArguments, [switch]$AllowMissing)
-        $output = @(& git @GitArguments 2>&1)
-        $code = $LASTEXITCODE
+        $consoleEncoding = [Console]::OutputEncoding
+        $restoreEncoding = $consoleEncoding.CodePage -ne 65001
+        # Git devuelve nombres de ramas y remotos en UTF-8.
+        if ($restoreEncoding) { [Console]::OutputEncoding = [Text.Encoding]::UTF8 }
+        try {
+            $output = @(& git @GitArguments 2>&1)
+            $code = $LASTEXITCODE
+        }
+        finally {
+            if ($restoreEncoding) { [Console]::OutputEncoding = $consoleEncoding }
+        }
         if ($code -ne 0) {
             if ($AllowMissing -and $code -eq 1) { return }
             throw "Git fallo (codigo $code): $($output -join [Environment]::NewLine)"
@@ -107,9 +116,35 @@ function git-profile {
     }
     if ($Action -in @('current', 'status')) {
         Write-Host 'CONFIGURACION LOCAL DEL REPOSITORIO' -ForegroundColor Cyan
-        Write-Host "Nombre : $name`nEmail  : $email`nFetch  : $($fetch[0])`nPush   : $($push[0])"
+        Write-Host "Nombre : $name`nEmail  : $email`nFetch de origin : $($fetch[0])`nPush de origin  : $($push[0])"
         Write-Host "Perfil : $(if ($matchedProfile) { $matchedProfile } else { 'sin coincidencia' })"
         if ($Action -eq 'current') { return }
+    }
+
+    if ($Action -in @('check', 'status')) {
+        $head = Invoke-ProfileGit -GitArguments @('symbolic-ref', '--quiet', 'HEAD') -AllowMissing
+        $pushRemoteKeys = @('remote.pushDefault')
+        if ($head -cmatch '^refs/heads/(.+)$') {
+            $branch = $Matches[1]
+            $pushRemoteKeys = @("branch.$branch.pushRemote", 'remote.pushDefault', "branch.$branch.remote")
+        }
+
+        foreach ($key in $pushRemoteKeys) {
+            # El terminador NUL distingue un valor vacio de una clave ausente.
+            $value = Invoke-ProfileGit -GitArguments @('config', '--null', '--get', $key) -AllowMissing
+            if ($null -eq $value) { continue }
+
+            $pushRemote = ($value -join "`n").TrimEnd([char]0)
+            if ($pushRemote -cne 'origin') {
+                $destination = 'un destino sin remoto registrado'
+                if ((Invoke-ProfileGit -GitArguments @('remote')) -ccontains $pushRemote) {
+                    $destination = "el remoto '$pushRemote'"
+                }
+                throw "git push sin argumentos selecciona $destination por $key. El perfil solo valida origin."
+            }
+            break
+        }
+        if ($Action -eq 'status') { Write-Host 'Remoto de git push : origin' }
     }
 
     if ($Action -eq 'use') {
@@ -190,6 +225,6 @@ function git-profile {
         }
     }
     Write-Host "OK  Perfil : $matchedProfile`nOK  GitHub : $expected`nOK  Nombre : $name`nOK  Email  : $email" -ForegroundColor Green
-    Write-Host "OK  Fetch  : $($fetch[0])`nOK  Push   : $($push[0])" -ForegroundColor Green
+    Write-Host "OK  Fetch de origin : $($fetch[0])`nOK  Push de origin  : $($push[0])" -ForegroundColor Green
     Write-Host 'Configuracion coherente. La autenticacion y los permisos remotos se comprueban por separado.'
 }

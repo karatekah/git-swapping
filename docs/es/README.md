@@ -80,12 +80,14 @@ Para un proyecto de la cuenta universitaria utiliza `git-profile use unsa`. Cada
 | --- | --- |
 | `git-profile` o `git-profile help` | Mostrar uso y versión |
 | `git-profile list` | Listar perfiles, incluso fuera de un repositorio |
-| `git-profile current` | Mostrar identidad local y URLs efectivas de descarga y envío |
+| `git-profile current` | Mostrar la identidad local y las URLs efectivas de descarga y envío de `origin` |
 | `git-profile use PERFIL` | Validar propietario y aplicar identidad y URLs locales |
-| `git-profile check` | Comprobar perfil, propietario, URLs e identidades efectivas de autor y committer |
-| `git-profile status` | Mostrar el estado y ejecutar la misma comprobación |
+| `git-profile check` | Comprobar el perfil, el propietario y las URLs de `origin`, el remoto de envío predeterminado y las identidades efectivas de autor y committer |
+| `git-profile status` | Mostrar el estado y el remoto de envío predeterminado, y ejecutar la misma comprobación |
 
 Los errores lanzan excepciones de PowerShell, capturables con `try` / `catch`. La función no cierra tu terminal. `use` confirma que se guardó la configuración; ejecuta `check` para detectar otras opciones que sobrescriban la identidad.
+
+Si `git push` sin argumentos selecciona un destino distinto de `origin`, `check` y `status` indican qué ajuste de Git lo seleccionó. Esta comprobación se ejecuta sin conexión.
 
 ## Identidad y autenticación
 

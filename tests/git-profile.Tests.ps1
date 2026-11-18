@@ -28,10 +28,13 @@ function New-TestRepo([string]$Remote = 'https://github.com/personal-user/demo.g
 function Get-ConfigSnapshot {
     [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path (Get-Location).Path '.git/config')))
 }
-function Assert-Fails([scriptblock]$Command) {
+function Assert-Fails([scriptblock]$Command, [string]$ExpectedMessage) {
     $failed = $false
     try { & $Command | Out-Null }
-    catch { $failed = $true }
+    catch {
+        if ($ExpectedMessage -and $_.Exception.Message -notmatch $ExpectedMessage) { throw }
+        $failed = $true
+    }
     Assert-True $failed 'Se esperaba un error y el comando termino sin fallar.'
 }
 function Test-Case([string]$Name, [scriptblock]$Command) {
@@ -81,7 +84,68 @@ try {
     }
     Test-Case 'current and status' {
         git-profile current 6>$null
-        git-profile status 6>$null
+        $status = (git-profile status 6>&1) -join "`n"
+        Assert-True ($status -match 'Remoto de git push : origin') 'Status no muestra el remoto predeterminado.'
+    }
+    Test-Case 'default push remote follows Git precedence even on an unborn branch' {
+        New-TestRepo
+        git-profile use personal 6>$null
+        $null = Invoke-TestGit @('symbolic-ref', 'HEAD', 'refs/heads/topic')
+        $null = Invoke-TestGit @('remote', 'add', 'upstream', 'https://github.com/personal-user/demo.git')
+        $null = Invoke-TestGit @('remote', 'add', 'publish', 'https://github.com/university-user/demo.git')
+
+        $null = Invoke-TestGit @('config', '--local', 'branch.topic.remote', 'upstream')
+        Assert-Fails { git-profile check } "remoto 'upstream'.*branch\.topic\.remote"
+        $null = Invoke-TestGit @('config', '--local', 'remote.pushDefault', 'publish')
+        Assert-Fails { git-profile check } "remoto 'publish'.*remote\.pushDefault"
+        $null = Invoke-TestGit @('config', '--local', 'branch.topic.pushRemote', 'upstream')
+        $before = Get-ConfigSnapshot
+        Assert-Fails { git-profile status 6>$null } "remoto 'upstream'.*branch\.topic\.pushRemote"
+        Assert-True ((Get-ConfigSnapshot) -eq $before) 'Status cambio el remoto de envio.'
+        $null = Invoke-TestGit @('config', '--local', 'branch.topic.pushRemote', 'origin')
+        git-profile check 6>$null
+    }
+    Test-Case 'detached HEAD uses repository push default' {
+        New-TestRepo
+        git-profile use personal 6>$null
+        $null = Invoke-TestGit @('symbolic-ref', 'HEAD', 'refs/heads/topic')
+        $null = Invoke-TestGit @('commit', '--quiet', '--allow-empty', '-m', 'Detached HEAD fixture')
+        $null = Invoke-TestGit @('remote', 'add', 'publish', 'https://github.com/university-user/demo.git')
+        $null = Invoke-TestGit @('config', '--local', 'branch.topic.pushRemote', 'origin')
+        $null = Invoke-TestGit @('config', '--local', 'remote.pushDefault', 'publish')
+        $null = Invoke-TestGit @('checkout', '--quiet', '--detach')
+        Assert-Fails { git-profile check } "remoto 'publish'.*remote\.pushDefault"
+        $null = Invoke-TestGit @('config', '--local', '--unset', 'remote.pushDefault')
+        git-profile check 6>$null
+    }
+    Test-Case 'direct push destination is flagged without printing its URL' {
+        New-TestRepo
+        git-profile use personal 6>$null
+        $null = Invoke-TestGit @('config', '--local', 'remote.pushDefault', 'https://user:example-token@github.com/university-user/demo.git')
+        Assert-Fails { git-profile check } '^(?!.*example-token).*destino sin remoto registrado.*remote\.pushDefault'
+    }
+    Test-Case 'reported push override agrees with a local Git dry run' {
+        New-TestRepo
+        git-profile use personal 6>$null
+        $branch = 'edici' + [char]0xF3 + 'n'
+        $null = Invoke-TestGit @('symbolic-ref', 'HEAD', "refs/heads/$branch")
+        $destination = Join-Path $testRoot 'push-destination.git'
+        $null = Invoke-TestGit @('init', '--quiet', '--bare', '--template=', $destination)
+        $null = Invoke-TestGit @('remote', 'add', 'publish', $destination)
+        $null = Invoke-TestGit @('config', '--local', "branch.$branch.pushRemote", 'publish')
+        $null = Invoke-TestGit @('config', '--local', 'push.default', 'current')
+        $null = Invoke-TestGit @('commit', '--quiet', '--allow-empty', '-m', 'Local push fixture')
+
+        $pushOutput = Invoke-TestGit @('-c', 'protocol.allow=never', '-c', 'protocol.file.allow=always', 'push', '--dry-run', '--porcelain')
+        Assert-True (($pushOutput -join "`n") -match 'To .+push-destination\.git') 'Git no selecciono el destino de prueba.'
+
+        $consoleEncoding = [Console]::OutputEncoding
+        try {
+            [Console]::OutputEncoding = [Text.Encoding]::GetEncoding(850)
+            Assert-Fails { git-profile check } "remoto 'publish'.*pushRemote"
+            Assert-True ([Console]::OutputEncoding.CodePage -eq 850) 'Check cambio la codificacion de la consola.'
+        }
+        finally { [Console]::OutputEncoding = $consoleEncoding }
     }
     Test-Case 'university profile' {
         New-TestRepo 'https://github.com/university-user/demo.git'

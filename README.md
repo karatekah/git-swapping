@@ -85,12 +85,14 @@ Use `git-profile use unsa` inside a repository owned by the university account. 
 | --- | --- |
 | `git-profile` or `git-profile help` | Show usage and version |
 | `git-profile list` | List configured profiles, including outside a repository |
-| `git-profile current` | Show local identity and effective fetch/push URLs |
+| `git-profile current` | Show local identity and the effective fetch/push URLs of `origin` |
 | `git-profile use PROFILE` | Validate ownership and apply local identity and URLs |
-| `git-profile check` | Verify profile, owner, URLs and effective author/committer identities |
-| `git-profile status` | Show current settings and run the same verification |
+| `git-profile check` | Verify the profile, `origin` owner and URLs, default push remote, and effective author and committer identities |
+| `git-profile status` | Show current settings and the default push remote, and run the same verification |
 
 Errors throw a PowerShell exception; automation can use `try` / `catch`. The function never calls `exit` to close your terminal. `use` confirms that configuration was saved; run `check` to detect additional identity overrides.
+
+If `git push` with no arguments selects a destination other than `origin`, `check` and `status` report the Git setting responsible. Remote selection is checked offline.
 
 ## Identity and authentication
 
