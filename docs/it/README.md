@@ -1,18 +1,18 @@
 <div align="center">
 
-<img src="../assets/githubswapping-mark.svg" width="96" height="96" alt="Simbolo terminale GithubSwapping" />
+<img src="../assets/git-swapping-mark.svg" width="96" height="96" alt="Simbolo dei due profili di Git Swapping" />
 
-# GithubSwapping
+# Git Swapping
 
 [English](../../README.md) · [Español](../es/README.md) · **Italiano**
 
 **Ogni repository, con il suo account.**
 
-Una piccola CLI PowerShell per separare le identità Git personali e universitarie, repository per repository.
+Profili Git per repository da PowerShell.
 
-[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/piattaforma-Windows-64748b?style=flat-square)](#requisiti)
+[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/piattaforma-Windows-64748b?style=flat-square)](#requisiti)
 
-[Avvio rapido](#avvio-rapido) · [Comandi](#comandi) · [Note alfa](../releases/v0.1.0-alpha.2.md) · [Segnala un errore](https://github.com/karatekah/GithubSwapping/issues)
+[Avvio rapido](#avvio-rapido) · [Comandi](#comandi) · [Note alfa](../releases/v0.1.0-alpha.2.md) · [Segnala un errore](https://github.com/karatekah/git-swapping/issues)
 
 </div>
 
@@ -40,8 +40,8 @@ Sono supportati repository di lavoro normali con un URL fetch di `origin` e al m
 In una nuova copia:
 
 ```powershell
-git clone https://github.com/karatekah/GithubSwapping.git
-cd GithubSwapping
+git clone https://github.com/karatekah/git-swapping.git
+cd git-swapping
 .\install.ps1
 git-profile list
 ```

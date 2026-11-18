@@ -6,6 +6,7 @@
 - Use English for command output, diagnostics and configuration examples.
 - Add a one-command PowerShell installer that sets up accounts interactively and reuses existing profiles.
 - Add interactive commands to create, edit, and remove saved accounts from any directory.
+- Rename the project to Git Swapping and introduce the two-profile logo.
 
 ## v0.1.0-alpha.2
 

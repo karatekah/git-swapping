@@ -87,4 +87,4 @@ if (-not $registered) {
 
 . $cliPath
 Set-Item -Path Function:global:git-profile -Value ${function:git-profile}
-Write-Host 'GithubSwapping is ready. Run git-profile list.' -ForegroundColor Green
+Write-Host 'Git Swapping is ready. Run git-profile list.' -ForegroundColor Green

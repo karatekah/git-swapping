@@ -1,18 +1,18 @@
 <div align="center">
 
-<img src="../assets/githubswapping-mark.svg" width="96" height="96" alt="Marca de terminal GithubSwapping" />
+<img src="../assets/git-swapping-mark.svg" width="96" height="96" alt="Símbolo de dos perfiles de Git Swapping" />
 
-# GithubSwapping
+# Git Swapping
 
 [English](../../README.md) · **Español** · [Italiano](../it/README.md)
 
 **Cada repositorio, con su cuenta.**
 
-Una pequeña CLI de PowerShell para separar identidades personales y universitarias de Git por repositorio.
+Perfiles de Git por repositorio desde PowerShell.
 
-[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/plataforma-Windows-64748b?style=flat-square)](#requisitos)
+[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/plataforma-Windows-64748b?style=flat-square)](#requisitos)
 
-[Inicio rápido](#inicio-rápido) · [Comandos](#comandos) · [Notas de la alfa](../releases/v0.1.0-alpha.2.md) · [Reportar un error](https://github.com/karatekah/GithubSwapping/issues)
+[Inicio rápido](#inicio-rápido) · [Comandos](#comandos) · [Notas de la alfa](../releases/v0.1.0-alpha.2.md) · [Reportar un error](https://github.com/karatekah/git-swapping/issues)
 
 </div>
 
@@ -40,8 +40,8 @@ Se admite un repositorio de trabajo normal con una URL de descarga en `origin` y
 En una copia recién clonada:
 
 ```powershell
-git clone https://github.com/karatekah/GithubSwapping.git
-cd GithubSwapping
+git clone https://github.com/karatekah/git-swapping.git
+cd git-swapping
 .\install.ps1
 git-profile list
 ```

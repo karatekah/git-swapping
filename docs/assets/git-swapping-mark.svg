@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-labelledby="mark-title">
+  <title id="mark-title">Git Swapping mark with two identities</title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .navy { fill: #8AABFF; }
+      .jade { fill: #24D891; }
+    }
+  </style>
+  <path class="navy" fill="#102D61" d="M8 77.5V28.3c0-.8.3-1.5.9-2.1L25.2 9.9a3.1 3.1 0 0 1 2.2-.9H49v14h20v8.4c0 .9-.7 1.6-1.6 1.6h-10c-.8 0-1.6.3-2.2.9L10.6 78.6C9.6 79.6 8 78.9 8 77.5Z"/>
+  <path class="jade" fill="#00965A" d="M88 37H63.5c-.8 0-1.5.7-1.5 1.5v13.7H50.6c-.8 0-1.6.3-2.2.9L16.3 85.2C15.3 86.2 16 88 17.5 88h68.8c.9 0 1.7-.8 1.7-1.7V37Z"/>
+</svg>

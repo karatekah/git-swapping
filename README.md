@@ -1,18 +1,18 @@
 <div align="center">
 
-<img src="docs/assets/githubswapping-mark.svg" width="96" height="96" alt="GithubSwapping terminal mark" />
+<img src="docs/assets/git-swapping-mark.svg" width="96" height="96" alt="Git Swapping two-profile mark" />
 
-# GithubSwapping
+# Git Swapping
 
 **English** · [Español](docs/es/README.md) · [Italiano](docs/it/README.md)
 
 **Every repository, the right account.**
 
-A small PowerShell CLI to keep personal and university Git identities separate, repository by repository.
+Per-repository Git profiles for PowerShell.
 
-[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](docs/releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/GithubSwapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/platform-Windows-64748b?style=flat-square)](#requirements) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-365b8c?style=flat-square)](#requirements)
+[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](docs/releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/platform-Windows-64748b?style=flat-square)](#requirements) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-365b8c?style=flat-square)](#requirements)
 
-[Quick start](#quick-start) · [Commands](#commands) · [Alpha notes](docs/releases/v0.1.0-alpha.2.md) · [Report a bug](https://github.com/karatekah/GithubSwapping/issues)
+[Quick start](#quick-start) · [Commands](#commands) · [Alpha notes](docs/releases/v0.1.0-alpha.2.md) · [Report a bug](https://github.com/karatekah/git-swapping/issues)
 
 </div>
 
@@ -43,8 +43,8 @@ The script uses atomic file replacement on the local filesystem. Configuration s
 From a fresh clone:
 
 ```powershell
-git clone https://github.com/karatekah/GithubSwapping.git
-cd GithubSwapping
+git clone https://github.com/karatekah/git-swapping.git
+cd git-swapping
 .\install.ps1
 git-profile list
 ```
@@ -88,7 +88,7 @@ If `git push` with no arguments selects a destination other than `origin`, `chec
 
 Commit identity, a remote's username and the credential used for authentication are separate. `check` validates local configuration without network access. A successful fetch demonstrates read access; it does not establish push permissions or prove which stored credential was used.
 
-GithubSwapping does not change global settings, delete credentials or switch the active account in GitHub CLI (`gh`). Existing commits keep their original metadata. To protect your email, use the `noreply` address provided by GitHub for future commits.
+Git Swapping does not change global settings, delete credentials or switch the active account in GitHub CLI (`gh`). Existing commits keep their original metadata. To protect your email, use the `noreply` address provided by GitHub for future commits.
 
 ## Architecture and stack
 
