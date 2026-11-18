@@ -42,26 +42,13 @@ En una copia recién clonada:
 ```powershell
 git clone https://github.com/karatekah/GithubSwapping.git
 cd GithubSwapping
-Copy-Item .\profiles.example.psd1 .\profiles.psd1
-notepad .\profiles.psd1
-```
-
-Completa nombres, correos y usuarios GitHub. `personal` y `unsa` son etiquetas: el campo `GitHub` debe coincidir con el propietario del repositorio. Puedes usar el correo `noreply` que ofrece GitHub para proteger tu dirección personal en los nuevos commits.
-
-```powershell
-. .\git-profile.ps1
+.\install.ps1
 git-profile list
 ```
 
-Agrega **una sola vez** esta carga a tu `$PROFILE`, reemplazando la ruta por la ubicación absoluta de la copia:
+El instalador pide una etiqueta, el nombre y correo para los commits y el usuario de GitHub por cada perfil. Puedes usar etiquetas como `personal` o `trabajo`. El usuario de GitHub debe coincidir con el propietario del repositorio. Puedes usar un correo `noreply` de GitHub para tus commits.
 
-```powershell
-if (Test-Path -LiteralPath 'C:\ruta\GithubSwapping\git-profile.ps1') {
-    . 'C:\ruta\GithubSwapping\git-profile.ps1'
-}
-```
-
-Si el perfil o su carpeta no existen, créalos antes de editar. Conserva el resto de su contenido. Windows PowerShell y PowerShell 7 utilizan perfiles diferentes. Reinicia la terminal o ejecuta `. $PROFILE` después del cambio.
+El comando queda disponible en la sesión actual y en futuras sesiones del mismo host de PowerShell. Ejecuta el instalador en cada edición o host que uses. Si ya existe `profiles.psd1`, reutiliza las cuentas y crea un respaldo del perfil de PowerShell antes de modificarlo.
 
 Dentro de un proyecto personal:
 
@@ -72,7 +59,7 @@ git-profile status
 git fetch origin
 ```
 
-Para un proyecto de la cuenta universitaria utiliza `git-profile use unsa`. Cada repositorio conserva su configuración al cambiar de carpeta.
+Para otra cuenta, usa la etiqueta que le asignaste, por ejemplo `git-profile use trabajo`. Cada repositorio conserva su configuración al cambiar de carpeta.
 
 ## Comandos
 
@@ -80,10 +67,15 @@ Para un proyecto de la cuenta universitaria utiliza `git-profile use unsa`. Cada
 | --- | --- |
 | `git-profile` o `git-profile help` | Mostrar uso y versión |
 | `git-profile list` | Listar perfiles, incluso fuera de un repositorio |
+| `git-profile add PERFIL` | Crear un perfil con la identidad para los commits y el usuario de GitHub |
+| `git-profile edit PERFIL` | Editar un perfil guardado. Pulsa Enter para conservar el valor de un campo |
+| `git-profile remove PERFIL` | Eliminar un perfil guardado tras confirmarlo |
 | `git-profile current` | Mostrar la identidad local y las URLs efectivas de descarga y envío de `origin` |
 | `git-profile use PERFIL` | Validar propietario y aplicar identidad y URLs locales |
 | `git-profile check` | Comprobar el perfil, el propietario y las URLs de `origin`, el remoto de envío predeterminado y las identidades efectivas de autor y committer |
 | `git-profile status` | Mostrar el estado y el remoto de envío predeterminado, y ejecutar la misma comprobación |
+
+Ejecuta `list`, `add`, `edit` o `remove` desde cualquier carpeta. Estos comandos administran las cuentas de tu archivo local `profiles.psd1`. Para aplicar una identidad editada, ejecuta `git-profile use PERFIL` dentro del repositorio. Escribe `y` para confirmar una eliminación o pulsa Enter para cancelarla. Si la lista queda vacía, puedes volver a crear un perfil con `add`.
 
 Los errores lanzan excepciones de PowerShell, capturables con `try` / `catch`. La función no cierra tu terminal. `use` confirma que se guardó la configuración; ejecuta `check` para detectar otras opciones que sobrescriban la identidad.
 
@@ -100,6 +92,7 @@ La herramienta conserva las credenciales existentes y la configuración global, 
 | Parte | Implementación |
 | --- | --- |
 | CLI | Función de `git-profile.ps1`, cargada desde `$PROFILE` |
+| Instalación | `install.ps1` configura las cuentas y registra la función |
 | Cuentas | Archivo de datos local `profiles.psd1` |
 | Configuración | Git instalado, códigos de salida comprobados y sustitución atómica |
 | Pruebas | Repositorios temporales reales, sin red ni credenciales guardadas |
@@ -118,9 +111,9 @@ Las pruebas cubren ambos perfiles, repetición, propietario incorrecto, URLs ind
 ## Documentación y próximos pasos
 
 - [Alcance y verificación de la alfa](../releases/v0.1.0-alpha.2.md) · [Changelog](../../CHANGELOG.md).
-- Próximos pasos: uso en más equipos Windows, ayuda de instalación y mapeos de propietarios más flexibles. SSH y otros proveedores requieren un diseño de autenticación propio.
+- Próximos pasos: uso en más equipos Windows y mapeos de propietarios más flexibles. SSH y otros proveedores requieren un diseño de autenticación propio.
 
-Si mueves la copia, actualiza su ruta en `$PROFILE`. Respalda `profiles.psd1` antes de eliminarla: Git no guarda tus cuentas.
+Si mueves o renombras la copia, ejecuta `install.ps1` desde su nueva ubicación. Respalda `profiles.psd1` antes de eliminar la copia, ya que Git excluye ese archivo.
 
 ---
 

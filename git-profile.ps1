@@ -4,7 +4,7 @@ function git-profile {
     [CmdletBinding()]
     param(
         [Parameter(Position = 0)]
-        [ValidateSet('list', 'current', 'use', 'check', 'status', 'help')]
+        [ValidateSet('list', 'add', 'edit', 'remove', 'current', 'use', 'check', 'status', 'help')]
         [string]$Action = 'help',
 
         [Parameter(Position = 1)]
@@ -46,39 +46,38 @@ function git-profile {
     if ($Action -eq 'help') {
         Write-Host 'git-profile v0.1.0-alpha.2' -ForegroundColor Cyan
         Write-Host 'Usage: git-profile list | current | use PROFILE | check | status'
+        Write-Host 'Manage profiles: git-profile add PROFILE | edit PROFILE | remove PROFILE'
         return
     }
 
-    if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
-        throw 'Git was not found on PATH.'
-    }
     $configPath = Join-Path $PSScriptRoot 'profiles.psd1'
     if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-        throw "profiles.psd1 is missing. Copy profiles.example.psd1 and configure your accounts in $PSScriptRoot."
+        throw "profiles.psd1 is missing. Run install.ps1 from $PSScriptRoot."
+    }
+    if ($Action -in @('add', 'edit', 'remove')) {
+        & (Join-Path $PSScriptRoot 'internal/Update-Profiles.ps1') -Action $Action -Label $Profile -Path $configPath
+        return
     }
     $profiles = Import-PowerShellDataFile -LiteralPath $configPath -ErrorAction Stop
-    if ($profiles.Count -eq 0) { throw 'No profiles are configured.' }
-    $accounts = @()
-    foreach ($key in $profiles.Keys) {
-        $p = $profiles[$key]
-        if ($key -notmatch '^[a-z0-9_-]+$' -or $p -isnot [hashtable] -or
-            $p.Name -isnot [string] -or [string]::IsNullOrWhiteSpace($p.Name) -or
-            $p.Email -isnot [string] -or $p.Email -notmatch '^[^\s<>@]+@[^\s<>@]+$' -or
-            $p.GitHub -isnot [string] -or $p.GitHub -notmatch '^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$' -or
-            $p.Name -match '[\r\n<>]' -or $accounts -contains $p.GitHub) {
-            throw "Invalid profile '$key' or duplicate GitHub account. Check profiles.psd1."
-        }
-        $accounts += $p.GitHub
-    }
+    & (Join-Path $PSScriptRoot 'internal/Assert-Profiles.ps1') $profiles
 
+    if (-not $profiles.psbase.Count) {
+        $message = 'No profiles are configured. Run git-profile add PROFILE.'
+        if ($Action -ne 'list') { throw $message }
+        Write-Host $message
+        return
+    }
     if ($Action -eq 'list') {
         Write-Host 'AVAILABLE PROFILES' -ForegroundColor Cyan
-        foreach ($key in ($profiles.Keys | Sort-Object)) {
+        foreach ($key in ($profiles.psbase.Keys | Sort-Object)) {
             $p = $profiles[$key]
             Write-Host "`nProfile : $key" -ForegroundColor Yellow
             Write-Host "Name   : $($p.Name)`nEmail  : $($p.Email)`nGitHub : $($p.GitHub)"
         }
         return
+    }
+    if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
+        throw 'Git was not found on PATH.'
     }
     if ($Action -eq 'use' -and ([string]::IsNullOrWhiteSpace($Profile) -or -not $profiles.ContainsKey($Profile))) {
         throw 'Profile not found. Run git-profile list.'
@@ -108,7 +107,7 @@ function git-profile {
     }
 
     $matchedProfile = $null
-    foreach ($key in $profiles.Keys) {
+    foreach ($key in $profiles.psbase.Keys) {
         if ($name -eq $profiles[$key].Name -and $email -eq $profiles[$key].Email) {
             $matchedProfile = $key
             break

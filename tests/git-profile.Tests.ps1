@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $tempParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $testRoot = Join-Path $tempParent ('git-profile-tests-' + [guid]::NewGuid().ToString('N'))
+$originalGlobalFunction = ${function:global:git-profile}
 $savedEnvironment = @{}
 $environmentNames = @(Get-ChildItem Env: | Where-Object { $_.Name -like 'GIT_*' } | ForEach-Object { $_.Name }) + @('EMAIL')
 foreach ($name in $environmentNames) {
@@ -42,6 +43,26 @@ function Test-Case([string]$Name, [scriptblock]$Command) {
     $script:passed++
     Write-Host "PASS $Name" -ForegroundColor Green
 }
+function Invoke-WithAnswers([scriptblock]$Command, [string[]]$Answers = @()) {
+    $inputs = [Collections.Generic.Queue[string]]::new()
+    foreach ($answer in $Answers) { $inputs.Enqueue($answer) }
+    function Read-Host([string]$Prompt) {
+        if (-not $inputs.Count) { throw "Unexpected prompt: $Prompt" }
+        $inputs.Dequeue()
+    }
+    & $Command
+    Assert-True ($inputs.Count -eq 0) 'The command did not use all test answers.'
+}
+
+function Invoke-TestInstaller {
+    param([string[]]$Answers = @(), [string]$ShellProfile = $installerProfilePath)
+
+    $PROFILE = [pscustomobject]@{
+        CurrentUserAllHosts = $allHostsProfilePath
+        CurrentUserCurrentHost = $ShellProfile
+    }
+    Invoke-WithAnswers { & (Join-Path $installerRoot 'install.ps1') 6>$null } $Answers
+}
 
 Push-Location
 try {
@@ -49,7 +70,70 @@ try {
     $env:GIT_CONFIG_NOSYSTEM = '1'
     $env:GIT_CONFIG_GLOBAL = Join-Path $testRoot 'empty.gitconfig'
     [IO.File]::WriteAllText($env:GIT_CONFIG_GLOBAL, '')
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'git-profile.ps1') -Destination $testRoot
+    $installerRoot = Join-Path $testRoot "Installer's clone"
+    $installerProfilePath = Join-Path $testRoot 'PowerShell\Microsoft.PowerShell_profile.ps1'
+    $allHostsProfilePath = Join-Path $testRoot 'PowerShell\profile.ps1'
+    $installerConfig = Join-Path $installerRoot 'profiles.psd1'
+    $null = New-Item -ItemType Directory -Path $installerRoot
+    foreach ($file in @('git-profile.ps1', 'install.ps1', 'internal')) {
+        Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $installerRoot -Recurse
+    }
+
+    Test-Case 'installer rejects invalid answers before writing configuration' {
+        Assert-Fails { Invoke-TestInstaller @('personal', 'Test Name', 'bad-email', 'personal-user', '') } 'Invalid profile'
+        Assert-True (-not (Test-Path -LiteralPath $installerConfig)) 'Invalid accounts were saved.'
+        Assert-True (-not (Test-Path -LiteralPath $installerProfilePath)) 'An incomplete install registered a loader.'
+    }
+    Test-Case 'installer saves accounts and registers the command in both sessions' {
+        $null = [IO.Directory]::CreateDirectory((Split-Path -Parent $installerProfilePath))
+        $existingProfile = "# Existing PowerShell settings`r`n"
+        [IO.File]::WriteAllText($installerProfilePath, $existingProfile, [Text.Encoding]::Unicode)
+        $author = "O'Connor " + [char]0xE1
+        Invoke-TestInstaller @('personal', $author, 'personal@example.com', 'personal-user', 'y', 'school', 'School Example', 'school@example.com', 'school-user', '')
+
+        $profiles = Import-PowerShellDataFile -LiteralPath $installerConfig
+        Assert-True ($profiles.Count -eq 2 -and $profiles.personal.Name -ceq $author) 'The profiles did not round-trip through the data file.'
+        $expectedScript = Join-Path $installerRoot 'git-profile.ps1'
+        Assert-True ((Get-Command git-profile).ScriptBlock.File -eq $expectedScript) 'The command is missing from the current session.'
+        & {
+            function git-profile { throw 'The loader did not replace the placeholder command.' }
+            . $installerProfilePath
+            git-profile list 6>$null
+            Assert-True ((Get-Command git-profile).ScriptBlock.File -eq $expectedScript) 'The PowerShell profile did not load the command.'
+        }
+        Assert-True (([IO.File]::ReadAllText($installerProfilePath)).StartsWith($existingProfile)) 'Existing PowerShell settings were changed.'
+        $backup = @(Get-ChildItem -LiteralPath (Split-Path -Parent $installerProfilePath) -Filter '*.bak')
+        Assert-True ($backup.Count -eq 1 -and [IO.File]::ReadAllText($backup[0].FullName) -ceq $existingProfile) 'The installer did not back up the previous profile.'
+    }
+    Test-Case 'installer reruns preserve the profile and account files' {
+        $beforeProfile = (Get-FileHash -LiteralPath $installerProfilePath).Hash
+        $beforeConfig = (Get-FileHash -LiteralPath $installerConfig).Hash
+        Invoke-TestInstaller
+        Assert-True ((Get-FileHash -LiteralPath $installerProfilePath).Hash -eq $beforeProfile) 'A second install changed the PowerShell profile.'
+        Assert-True ((Get-FileHash -LiteralPath $installerConfig).Hash -eq $beforeConfig) 'A second install changed the accounts.'
+    }
+    Test-Case 'installer creates and refreshes a managed PowerShell profile' {
+        $newHost = Join-Path $testRoot 'NewHost\Microsoft.PowerShell_profile.ps1'
+        Invoke-TestInstaller -ShellProfile $newHost
+        Assert-True (Test-Path -LiteralPath $newHost -PathType Leaf) 'The installer did not create the host profile.'
+        $currentLoader = [IO.File]::ReadAllText($newHost)
+        [IO.File]::WriteAllText($newHost, $currentLoader.Replace('git-profile.ps1', 'previous-location.ps1'), [Text.Encoding]::UTF8)
+        Invoke-TestInstaller -ShellProfile $newHost
+        Assert-True ([IO.File]::ReadAllText($newHost) -ceq $currentLoader) 'The installer appended a second loader after the path changed.'
+    }
+    Test-Case 'installer recognizes the earlier manual loader' {
+        $manualScript = (Join-Path $installerRoot 'git-profile.ps1').Replace("'", "''")
+        $manualLoader = "if (Test-Path -LiteralPath '$manualScript') { . '$manualScript' }"
+        [IO.File]::WriteAllText($allHostsProfilePath, $manualLoader)
+        $anotherHost = Join-Path $testRoot 'PowerShell\AnotherHost_profile.ps1'
+        Invoke-TestInstaller -ShellProfile $anotherHost
+        Assert-True (-not (Test-Path -LiteralPath $anotherHost)) 'The installer duplicated the manual loader.'
+        Assert-True ([IO.File]::ReadAllText($allHostsProfilePath) -ceq $manualLoader) 'The installer modified the manual loader.'
+    }
+
+    foreach ($file in @('git-profile.ps1', 'internal')) {
+        Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $testRoot -Recurse
+    }
     . (Join-Path $testRoot 'git-profile.ps1')
     Set-Location -LiteralPath $testRoot
     Test-Case 'help works without configuration' {
@@ -60,13 +144,64 @@ try {
         Assert-Fails { git-profile list } 'profiles\.psd1 is missing'
     }
 
+    $fixturePath = Join-Path $testRoot 'profiles.psd1'
+    $inlineProfile = "@{ personal = @{ Name = 'Personal Example'; Email = 'personal@example.com'; GitHub = 'personal-user'; Extra = 'keep me' }; <# local note #> }"
+    [IO.File]::WriteAllText($fixturePath, $inlineProfile)
+    Test-Case 'add and edit saved profiles outside a repository' {
+        Invoke-WithAnswers { git-profile add work 6>$null } @("D'Angelo", 'work@example.com', 'work-user')
+        $stored = Import-PowerShellDataFile -LiteralPath $fixturePath
+        Assert-True ($stored.work.Name -ceq "D'Angelo") 'Add did not store the quoted name.'
+        Invoke-WithAnswers { git-profile edit personal 6>$null } @('Changed Name', '', 'updated-personal')
+        $stored = Import-PowerShellDataFile -LiteralPath $fixturePath
+        Assert-True ($stored.personal.Name -ceq 'Changed Name' -and $stored.personal.GitHub -ceq 'updated-personal') 'Edit did not store the new values.'
+        Assert-True ($stored.personal.Email -ceq 'personal@example.com') 'Edit overwrote a field skipped by pressing Enter.'
+        Assert-True ($stored.personal.Extra -ceq 'keep me' -and [IO.File]::ReadAllText($fixturePath).Contains('<# local note #>')) 'Edit removed extra data or a comment.'
+        $listOutput = (git-profile list 6>&1) -join "`n"
+        Assert-True ($listOutput -match 'Profile : work' -and $listOutput -match 'updated-personal') 'List did not show the saved changes.'
+    }
+    Test-Case 'invalid profile changes leave the file intact' {
+        $before = (Get-FileHash -LiteralPath $fixturePath).Hash
+        Assert-Fails { Invoke-WithAnswers { git-profile add WORK 6>$null } } 'already exists'
+        Assert-Fails { Invoke-WithAnswers { git-profile edit unknown 6>$null } } 'was not found'
+        Assert-Fails { Invoke-WithAnswers { git-profile add extra 6>$null } @('Extra', 'not-an-email', 'extra-user') } 'Invalid profile'
+        Assert-Fails { Invoke-WithAnswers { git-profile edit work 6>$null } @('', '', 'updated-personal') } 'duplicate GitHub account'
+        Invoke-WithAnswers { git-profile edit work 6>$null } @('', '', '')
+        Assert-True ((Get-FileHash -LiteralPath $fixturePath).Hash -eq $before) 'An invalid or empty edit changed the file.'
+    }
+    Test-Case 'remove can be cancelled and the last profile can be replaced' {
+        $before = (Get-FileHash -LiteralPath $fixturePath).Hash
+        Invoke-WithAnswers { git-profile remove personal 6>$null } @('')
+        Assert-True ((Get-FileHash -LiteralPath $fixturePath).Hash -eq $before) 'Cancelling removal changed the file.'
+        Invoke-WithAnswers { git-profile remove personal 6>$null } @('y')
+        $stored = Import-PowerShellDataFile -LiteralPath $fixturePath
+        Assert-True ($stored.Count -eq 1 -and $stored.ContainsKey('work')) 'Remove did not preserve the other profile.'
+        Invoke-WithAnswers { git-profile remove work 6>$null } @('yes')
+        $listOutput = (git-profile list 6>&1) -join "`n"
+        Assert-True ($listOutput -match 'No profiles are configured') 'List did not report the empty configuration.'
+        Assert-True ([IO.File]::ReadAllText($fixturePath).Contains('<# local note #>')) 'Removing the last profile removed a comment.'
+        Invoke-WithAnswers { git-profile add keys 6>$null } @('New Name', 'new@example.com', 'new-user')
+        $listOutput = (git-profile list 6>&1) -join "`n"
+        Assert-True ($listOutput -match 'Profile : keys') 'Add did not restore a profile to the empty configuration.'
+    }
+    Test-Case 'profile commands preserve changes made during a prompt' {
+        $externallyUpdated = [IO.File]::ReadAllText($fixturePath) + "`r`n# Changed by another session`r`n"
+        & {
+            function Read-Host {
+                [IO.File]::WriteAllText($fixturePath, $externallyUpdated)
+                'y'
+            }
+            Assert-Fails { git-profile remove keys 6>$null } 'changed while you were entering data'
+        }
+        Assert-True ([IO.File]::ReadAllText($fixturePath) -ceq $externallyUpdated) 'The command overwrote the concurrent change.'
+        Assert-True (-not (Test-Path -LiteralPath "$fixturePath.lock.bak")) 'The command left a lock behind.'
+    }
+
     $fixture = @'
 @{
     personal = @{ Name = 'Personal Example'; Email = 'personal@example.com'; GitHub = 'personal-user' }
     unsa = @{ Name = 'University Example'; Email = 'university@example.com'; GitHub = 'university-user' }
 }
 '@
-    $fixturePath = Join-Path $testRoot 'profiles.psd1'
     [IO.File]::WriteAllText($fixturePath, $fixture)
     Test-Case 'list works outside repositories' {
         $listOutput = (git-profile list 6>&1) -join "`n"
@@ -256,6 +391,12 @@ try {
 }
 finally {
     Pop-Location
+    if ($originalGlobalFunction) {
+        Set-Item -Path Function:global:git-profile -Value $originalGlobalFunction
+    }
+    else {
+        Remove-Item -Path Function:global:git-profile -ErrorAction SilentlyContinue
+    }
     foreach ($name in @('GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_GLOBAL', 'GIT_COMMITTER_EMAIL')) {
         [Environment]::SetEnvironmentVariable($name, $null, 'Process')
     }

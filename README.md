@@ -45,28 +45,13 @@ From a fresh clone:
 ```powershell
 git clone https://github.com/karatekah/GithubSwapping.git
 cd GithubSwapping
-Copy-Item .\profiles.example.psd1 .\profiles.psd1
-notepad .\profiles.psd1
-```
-
-Replace the example names, emails and GitHub usernames with your accounts. Profile names such as `personal` and `unsa` are labels; the `GitHub` field must match the repository owner. You can use a GitHub-provided `noreply` email to keep your personal email out of commit metadata.
-
-Load the function in the current session:
-
-```powershell
-. .\git-profile.ps1
+.\install.ps1
 git-profile list
 ```
 
-For automatic loading, add this **once** to the `$PROFILE` used by your terminal, replacing the example path with the absolute path to your clone:
+The installer prompts for profile labels, commit names and emails, and GitHub usernames. Choose labels such as `personal` or `work`. The GitHub username must match the repository owner. You can use a GitHub-provided `noreply` email for your commits.
 
-```powershell
-if (Test-Path -LiteralPath 'C:\path\GithubSwapping\git-profile.ps1') {
-    . 'C:\path\GithubSwapping\git-profile.ps1'
-}
-```
-
-Create the profile file and its parent directory first if they do not exist. Keep other profile content. Windows PowerShell and PowerShell 7 have separate profile locations; configure the shell you use. Restart the terminal or run `. $PROFILE` after editing.
+The command is available immediately and on future starts of the PowerShell host where you installed it. Run the installer in each PowerShell edition or host you use. It reuses an existing `profiles.psd1` and backs up an existing PowerShell profile before changing it.
 
 Inside a personal repository:
 
@@ -77,7 +62,7 @@ git-profile status
 git fetch origin
 ```
 
-Use `git-profile use unsa` inside a repository owned by the university account. Profiles remain local to each repository when moving between folders.
+For another account, use its configured label, for example `git-profile use work`. Profiles remain local to each repository when moving between folders.
 
 ## Commands
 
@@ -85,10 +70,15 @@ Use `git-profile use unsa` inside a repository owned by the university account. 
 | --- | --- |
 | `git-profile` or `git-profile help` | Show usage and version |
 | `git-profile list` | List configured profiles, including outside a repository |
+| `git-profile add PROFILE` | Create a profile by entering its commit identity and GitHub username |
+| `git-profile edit PROFILE` | Edit a saved profile. Press Enter to keep a field's current value |
+| `git-profile remove PROFILE` | Remove a saved profile after confirming |
 | `git-profile current` | Show local identity and the effective fetch/push URLs of `origin` |
 | `git-profile use PROFILE` | Validate ownership and apply local identity and URLs |
 | `git-profile check` | Verify the profile, `origin` owner and URLs, default push remote, and effective author and committer identities |
 | `git-profile status` | Show current settings and the default push remote, and run the same verification |
+
+Run `list`, `add`, `edit`, or `remove` from any directory. These commands manage the accounts in local `profiles.psd1`. To apply an edited identity to a repository, run `git-profile use PROFILE` inside that repository. At the removal prompt, enter `y` to confirm or press Enter to cancel. If the list is empty, `add` can create a new profile.
 
 Errors throw a PowerShell exception; automation can use `try` / `catch`. The function never calls `exit` to close your terminal. `use` confirms that configuration was saved; run `check` to detect additional identity overrides.
 
@@ -105,6 +95,7 @@ GithubSwapping does not change global settings, delete credentials or switch the
 | Component | Implementation |
 | --- | --- |
 | CLI | One dot-sourced PowerShell function in `git-profile.ps1` |
+| Installation | `install.ps1` sets up accounts and registers the function |
 | Profiles | Local PowerShell data file, loaded with `Import-PowerShellDataFile` |
 | Git operations | Installed Git executable with checked return codes |
 | Configuration update | Staged config, exclusive lock and atomic replacement |
@@ -128,9 +119,9 @@ Tests isolate Git configuration and identities, exercise both profiles and verif
 - [Spanish overview](docs/es/README.md) · [Italian overview](docs/it/README.md)
 - [Alpha scope and verification](docs/releases/v0.1.0-alpha.2.md)
 - [Changelog](CHANGELOG.md)
-- Planned: broader Windows usage feedback, an installation helper and more flexible owner mappings. SSH and other providers need separate authentication design before implementation.
+- Planned: broader Windows usage feedback and more flexible owner mappings. SSH and other providers need separate authentication design before implementation.
 
-Move or rename the clone only after updating its path in `$PROFILE`. Keep a backup of your local `profiles.psd1` before deleting the clone; Git does not track that file.
+If you move or rename the clone, run `install.ps1` from its new location. Keep a backup of your local `profiles.psd1` before deleting the clone because Git excludes that file.
 
 ---
 

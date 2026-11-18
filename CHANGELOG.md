@@ -4,6 +4,8 @@
 
 - Check the remote selected by `git push` with no arguments and report the overriding Git setting when the destination differs from `origin`.
 - Use English for command output, diagnostics and configuration examples.
+- Add a one-command PowerShell installer that sets up accounts interactively and reuses existing profiles.
+- Add interactive commands to create, edit, and remove saved accounts from any directory.
 
 ## v0.1.0-alpha.2
 
