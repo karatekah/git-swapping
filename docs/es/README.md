@@ -12,7 +12,7 @@ Perfiles de Git por repositorio desde PowerShell.
 
 [![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/plataforma-Windows-64748b?style=flat-square)](#requisitos)
 
-[Inicio rápido](#inicio-rápido) · [Comandos](#comandos) · [Notas de la alfa](../releases/v0.1.0-alpha.2.md) · [Reportar un error](https://github.com/karatekah/git-swapping/issues)
+[Inicio rápido](#inicio-rápido) · [Comandos](#comandos) · [Notas de la alfa.3](../releases/v0.1.0-alpha.3.md) · [Reportar un error](https://github.com/karatekah/git-swapping/issues)
 
 </div>
 
@@ -37,7 +37,7 @@ Se admite un repositorio de trabajo normal con una URL de descarga en `origin` y
 
 ## Inicio rápido
 
-En una copia recién clonada:
+Estas instrucciones usan `main`, que incluye el instalador y la gestión interactiva de perfiles introducidos en `v0.1.0-alpha.3`.
 
 ```powershell
 git clone https://github.com/karatekah/git-swapping.git
@@ -54,12 +54,13 @@ Dentro de un proyecto personal:
 
 ```powershell
 cd C:\ruta\proyecto-personal
-git-profile use personal
+git-profile use -Auto -WhatIf
+git-profile use -Auto
 git-profile status
 git fetch origin
 ```
 
-Para otra cuenta, usa la etiqueta que le asignaste, por ejemplo `git-profile use trabajo`. Cada repositorio conserva su configuración al cambiar de carpeta.
+`-Auto` selecciona el perfil cuyo usuario de GitHub coincide con el propietario de `origin`. Requiere URLs compatibles de descarga y envío, y que `origin` sea el remoto predeterminado para el envío. Para seleccionar un perfil manualmente, ejecuta `git-profile use personal` o usa la etiqueta que le asignaste. Cada repositorio conserva su configuración al cambiar de carpeta.
 
 ## Comandos
 
@@ -71,15 +72,17 @@ Para otra cuenta, usa la etiqueta que le asignaste, por ejemplo `git-profile use
 | `git-profile edit PERFIL` | Editar un perfil guardado. Pulsa Enter para conservar el valor de un campo |
 | `git-profile remove PERFIL` | Eliminar un perfil guardado tras confirmarlo |
 | `git-profile current` | Mostrar la identidad local y las URLs efectivas de descarga y envío de `origin` |
-| `git-profile use PERFIL` | Validar propietario y aplicar identidad y URLs locales |
+| `git-profile use PERFIL` | Validar y aplicar el perfil elegido en el repositorio |
+| `git-profile use -Auto` | Seleccionar y aplicar el perfil según el propietario de `origin` |
+| `git-profile use -Auto -WhatIf` | Ver el perfil, la identidad y las URLs efectivas sin escribir cambios. También funciona con un perfil explícito |
 | `git-profile check` | Comprobar el perfil, el propietario y las URLs de `origin`, el remoto de envío predeterminado y las identidades efectivas de autor y committer |
-| `git-profile status` | Mostrar el estado y el remoto de envío predeterminado, y ejecutar la misma comprobación |
+| `git-profile status` | Mostrar el perfil esperado, las identidades efectivas y el origen de los ajustes en conflicto |
 
-Ejecuta `list`, `add`, `edit` o `remove` desde cualquier carpeta. Estos comandos administran las cuentas de tu archivo local `profiles.psd1`. Para aplicar una identidad editada, ejecuta `git-profile use PERFIL` dentro del repositorio. Escribe `y` para confirmar una eliminación o pulsa Enter para cancelarla. Si la lista queda vacía, puedes volver a crear un perfil con `add`.
+Ejecuta `list`, `add`, `edit` o `remove` desde cualquier carpeta. Estos comandos administran las cuentas de tu archivo local `profiles.psd1`. Para aplicar una identidad editada, ejecuta `git-profile use PERFIL` dentro del repositorio. Escribe `y` para confirmar una eliminación o pulsa Enter para cancelarla. Al eliminar un perfil guardado, los repositorios conservan la identidad y las URLs que ya se habían aplicado. Si la lista queda vacía, puedes volver a crear un perfil con `add`.
 
 Los errores lanzan excepciones de PowerShell, capturables con `try` / `catch`. La función no cierra tu terminal. `use` confirma que se guardó la configuración; ejecuta `check` para detectar otras opciones que sobrescriban la identidad.
 
-Si `git push` sin argumentos selecciona un destino distinto de `origin`, `check` y `status` indican qué ajuste de Git lo seleccionó. Esta comprobación se ejecuta sin conexión.
+Si `git push` sin argumentos selecciona un destino distinto de `origin`, `check` y `status` muestran el ajuste responsable y su origen. La comprobación se ejecuta sin conexión. `use` requiere que `origin` esté definido directamente en la configuración local de Git. Si hay una regla `includeIf.hasconfig:remote.*.url`, configura `origin` con la cuenta HTTPS deseada antes de ejecutar `use`.
 
 ## Identidad y autenticación
 
@@ -98,7 +101,7 @@ La herramienta conserva las credenciales existentes y la configuración global, 
 | Pruebas | Repositorios temporales reales, sin red ni credenciales guardadas |
 | CI | GitHub Actions en Windows PowerShell 5.1 y PowerShell 7 |
 
-Sin instalar dependencias:
+Las pruebas requieren Git 2.32 o posterior para aislar la configuración de Git del usuario. No hace falta instalar dependencias:
 
 ```powershell
 powershell -NoProfile -File .\tests\git-profile.Tests.ps1
@@ -110,7 +113,7 @@ Las pruebas cubren ambos perfiles, repetición, propietario incorrecto, URLs ind
 
 ## Documentación y próximos pasos
 
-- [Alcance y verificación de la alfa](../releases/v0.1.0-alpha.2.md) · [Changelog](../../CHANGELOG.md).
+- [Alcance y verificación de la alfa.3](../releases/v0.1.0-alpha.3.md) · [Changelog](../../CHANGELOG.md).
 - Próximos pasos: uso en más equipos Windows y mapeos de propietarios más flexibles. SSH y otros proveedores requieren un diseño de autenticación propio.
 
 Si mueves o renombras la copia, ejecuta `install.ps1` desde su nueva ubicación. Respalda `profiles.psd1` antes de eliminar la copia, ya que Git excluye ese archivo.

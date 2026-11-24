@@ -1,3 +1,22 @@
+function Read-ProfileFile {
+    param([string]$Path)
+
+    try {
+        $content = [IO.File]::ReadAllText($Path, [Text.UTF8Encoding]::new($false, $true))
+    }
+    catch [Text.DecoderFallbackException] {
+        $codePage = [Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
+        $content = [IO.File]::ReadAllText($Path, [Text.Encoding]::GetEncoding($codePage))
+    }
+
+    $tokens = $null
+    $errors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseInput($content, [ref]$tokens, [ref]$errors)
+    $table = $ast.Find({ param($node) $node -is [Management.Automation.Language.HashtableAst] }, $false)
+    if ($errors.Count -or -not $table) { throw 'Could not read the profiles file as a PowerShell data file.' }
+    [pscustomobject]@{ Content = $content; Table = $table; Tokens = $tokens; Profiles = $table.SafeGetValue() }
+}
+
 function Read-ProfileFields {
     param([hashtable]$Current)
 

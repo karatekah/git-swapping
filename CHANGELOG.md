@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-alpha.3
 
 - Check the remote selected by `git push` with no arguments and report the overriding Git setting when the destination differs from `origin`.
 - Use English for command output, diagnostics and configuration examples.
 - Add a one-command PowerShell installer that sets up accounts interactively and reuses existing profiles.
 - Add interactive commands to create, edit, and remove saved accounts from any directory.
 - Rename the project to Git Swapping and introduce the two-profile logo.
+- Select a profile by GitHub owner with `use -Auto`, and preview the local identity and URL changes with `-WhatIf`.
+- Validate planned fetch and push URLs with Git before replacing the local configuration, including URL rewrites.
+- Hide unsupported remote URLs in diagnostics and report the expected profile, effective identities and sources of conflicting settings.
+- Preserve quotes and Unicode when applying profiles on Windows PowerShell 5.1, and read manually edited UTF-8 profile files with or without a BOM.
 
 ## v0.1.0-alpha.2
 

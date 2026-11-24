@@ -1,5 +1,9 @@
 #requires -Version 5.1
 $ErrorActionPreference = 'Stop'
+$gitVersion = git --version
+if ($gitVersion -notmatch '^git version (\d+\.\d+)' -or [version]$Matches[1] -lt [version]'2.32') {
+    throw 'The isolated test suite requires Git 2.32 or later.'
+}
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $tempParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $testRoot = Join-Path $tempParent ('git-profile-tests-' + [guid]::NewGuid().ToString('N'))
@@ -195,6 +199,18 @@ try {
         Assert-True ([IO.File]::ReadAllText($fixturePath) -ceq $externallyUpdated) 'The command overwrote the concurrent change.'
         Assert-True (-not (Test-Path -LiteralPath "$fixturePath.lock.bak")) 'The command left a lock behind.'
     }
+    Test-Case 'editing a UTF-8 profile without a BOM preserves its accented name and comments' {
+        $name = 'Jos' + [char]0xE9
+        $comment = '# configuraci' + [char]0xF3 + 'n'
+        $content = $comment + [Environment]::NewLine + "@{ personal = @{ Name = '$name'; Email = 'old@example.com'; GitHub = 'personal-user' } }"
+        [IO.File]::WriteAllText($fixturePath, $content, [Text.UTF8Encoding]::new($false))
+        $listing = (git-profile list 6>&1) -join [Environment]::NewLine
+        Assert-True ($listing.Contains($name)) 'List misread the name before editing.'
+        Invoke-WithAnswers { git-profile edit personal 6>$null } @('', 'new@example.com', '')
+        $stored = Import-PowerShellDataFile -LiteralPath $fixturePath
+        Assert-True ($stored.personal.Name -ceq $name -and $stored.personal.Email -eq 'new@example.com') 'The edit damaged the profile.'
+        Assert-True ([IO.File]::ReadAllText($fixturePath).Contains($comment)) 'The edit damaged the comment.'
+    }
 
     $fixture = @'
 @{
@@ -210,6 +226,58 @@ try {
     Test-Case 'use outside a repository fails' { Assert-Fails { git-profile use personal } }
     Test-Case 'unknown profile fails' { Assert-Fails { git-profile use unknown } }
     Test-Case 'missing profile fails' { Assert-Fails { git-profile use } }
+
+    Test-Case 'automatic selection previews local changes without touching files' {
+        New-TestRepo 'https://github.com/university-user/demo.git'
+        $before = Get-ConfigSnapshot
+        $profileHash = (Get-FileHash -LiteralPath $fixturePath).Hash
+        $preview = (git-profile use -Auto -WhatIf 6>&1) -join [Environment]::NewLine
+        Assert-True ($preview -match 'Profile : unsa' -and $preview -match 'university-user@github.com/university-user/demo\.git') 'Preview did not show the selected profile and URL.'
+        $null = git-profile remove unsa -WhatIf 6>&1
+        Assert-True ((Get-ConfigSnapshot) -eq $before -and -not (Test-Path -LiteralPath '.git/config.lock')) 'Preview wrote Git configuration.'
+        Assert-True ((Get-FileHash -LiteralPath $fixturePath).Hash -eq $profileHash) 'Preview changed the profiles file.'
+        git-profile use -Auto 6>$null
+        git-profile check 6>$null
+        Assert-True ((git config --local user.email) -eq 'university@example.com') 'Auto did not apply the university profile.'
+    }
+    Test-Case 'auto rejects an unknown owner, conflicting arguments or a different push remote' {
+        New-TestRepo 'https://github.com/unknown-user/demo.git'
+        $before = Get-ConfigSnapshot
+        Assert-Fails { git-profile use -Auto } 'No profile is configured'
+        Assert-Fails { git-profile use personal -Auto } 'omit the profile label'
+        Assert-True ((Get-ConfigSnapshot) -eq $before) 'An unassigned repository was modified.'
+        New-TestRepo
+        $null = Invoke-TestGit @('remote', 'add', 'upstream', 'https://github.com/university-user/demo.git')
+        $null = Invoke-TestGit @('config', '--local', 'remote.pushDefault', 'upstream')
+        $before = Get-ConfigSnapshot
+        Assert-Fails { git-profile use -Auto } 'default push remote'
+        Assert-True ((Get-ConfigSnapshot) -eq $before) 'Auto wrote config despite a conflicting push destination.'
+    }
+    Test-Case 'owner disambiguates two profiles with the same commit identity' {
+        $shared = $fixture.Replace('University Example', 'Personal Example').Replace('university@example.com', 'personal@example.com')
+        [IO.File]::WriteAllText($fixturePath, $shared)
+        try {
+            foreach ($item in @(@('personal', 'personal-user'), @('unsa', 'university-user'))) {
+                New-TestRepo "https://github.com/$($item[1])/demo.git"
+                git-profile use -Auto 6>$null
+                $status = (git-profile status 6>&1) -join [Environment]::NewLine
+                Assert-True ($status -match "Expected profile : $($item[0])" -and $status -match "OK  Profile : $($item[0])") 'Status selected the wrong profile.'
+            }
+        }
+        finally { [IO.File]::WriteAllText($fixturePath, $fixture) }
+    }
+    Test-Case 'use passes literal quotes, backslashes and Unicode through to Git' {
+        $name = 'Jos' + [char]0xE9 + ' \"J\" \path\ Example'
+        [IO.File]::WriteAllText($fixturePath, $fixture.Replace('Personal Example', $name))
+        try {
+            New-TestRepo
+            git-profile use personal 6>$null
+            git-profile check 6>$null
+            $current = (git-profile current 6>&1) -join [Environment]::NewLine
+            Assert-True ($current.Contains($name)) 'Git received a different author name.'
+        }
+        finally { [IO.File]::WriteAllText($fixturePath, $fixture) }
+    }
 
     Test-Case 'personal profile and check' {
         New-TestRepo
@@ -327,6 +395,31 @@ try {
         Assert-Fails { git-profile use personal }
         Assert-True ((Get-ConfigSnapshot) -eq $before) 'The configuration changed before the push URL was rejected.'
     }
+    foreach ($rule in @('insteadOf', 'pushInsteadOf')) {
+        Test-Case "reject $rule rewriting the proposed origin before any writes" {
+            New-TestRepo
+            $null = Invoke-TestGit @('config', '--local', "url.https://personal-user@github.com/personal-user/other.git.$rule", 'https://personal-user@github.com/personal-user/demo.git')
+            $before = Get-ConfigSnapshot
+            Assert-Fails { git-profile use personal -WhatIf 6>$null } 'rewrite would change'
+            Assert-Fails { git-profile use -Auto 6>$null } 'rewrite would change'
+            Assert-True ((Get-ConfigSnapshot) -eq $before -and -not (Test-Path -LiteralPath '.git/config.lock')) 'A rewrite changed the repository configuration.'
+        }
+    }
+    Test-Case 'remote-dependent includes are rejected before changing origin' {
+        New-TestRepo
+        $null = Invoke-TestGit @('config', '--local', 'includeIf.hasconfig:remote.*.url:https://personal-user@github.com/**.path', 'conditional.gitconfig')
+        $before = Get-ConfigSnapshot
+        Assert-Fails { git-profile use -Auto } 'configuration depends on remote URLs'
+        Assert-True ((Get-ConfigSnapshot) -eq $before) 'The remote-dependent configuration was changed.'
+    }
+    Test-Case 'current and status hide credentials in origin URLs and errors' {
+        New-TestRepo 'https://user:example-token@github.com/personal-user/demo.git'
+        $current = (git-profile current 6>&1) -join [Environment]::NewLine
+        Assert-True ($current -match 'unsupported URL hidden' -and $current -notmatch 'example-token') 'Current leaked a credential.'
+        $output = [Collections.Generic.List[string]]::new()
+        Assert-Fails { git-profile status 6>&1 | ForEach-Object { $output.Add($_.ToString()) } } '(?s)\A(?!.*example-token).*without credentials'
+        Assert-True (($output -join [Environment]::NewLine) -notmatch 'example-token') 'Status leaked a credential.'
+    }
     foreach ($url in @('', 'git@github.com:personal-user/demo.git', 'https://gitlab.com/personal-user/demo.git', 'https://user:secret@github.com/personal-user/demo.git')) {
         Test-Case 'missing or unsupported origin leaves config intact' {
             New-TestRepo $url
@@ -373,13 +466,13 @@ try {
         New-TestRepo
         git-profile use personal 6>$null
         $null = Invoke-TestGit @('config', '--local', 'author.email', 'override@example.com')
-        Assert-Fails { git-profile check }
+        Assert-Fails { git-profile status 6>$null } 'author\.email \[local, file:'
     }
     Test-Case 'check detects environment override' {
         New-TestRepo
         git-profile use personal 6>$null
         $env:GIT_COMMITTER_EMAIL = 'override@example.com'
-        try { Assert-Fails { git-profile check } }
+        try { Assert-Fails { git-profile check } 'GIT_COMMITTER_EMAIL' }
         finally { Remove-Item Env:GIT_COMMITTER_EMAIL }
     }
     Test-Case 'duplicate configured accounts are rejected' {

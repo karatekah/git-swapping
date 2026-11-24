@@ -7,7 +7,8 @@ if ($Label -notmatch '^[a-z0-9_-]+$') {
 }
 
 $originalHash = (Get-FileHash -LiteralPath $Path -ErrorAction Stop).Hash
-$profiles = Import-PowerShellDataFile -LiteralPath $Path -ErrorAction Stop
+$data = Read-ProfileFile $Path
+$profiles = $data.Profiles
 & (Join-Path $PSScriptRoot 'Assert-Profiles.ps1') $profiles
 if ($Action -eq 'add' -and $profiles.ContainsKey($Label)) {
     throw "Profile '$Label' already exists. Run git-profile edit $Label to update it."
@@ -16,13 +17,10 @@ if ($Action -ne 'add' -and -not $profiles.ContainsKey($Label)) {
     throw "Profile '$Label' was not found. Run git-profile list."
 }
 
-$original = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
-$tokens = $null
-$parseErrors = $null
-$ast = [Management.Automation.Language.Parser]::ParseInput($original, [ref]$tokens, [ref]$parseErrors)
+$original = $data.Content
+$tokens = $data.Tokens
+$table = $data.Table
 $findTable = { param($node) $node -is [Management.Automation.Language.HashtableAst] }
-$table = $ast.Find($findTable, $true)
-if ($parseErrors.Count -or -not $table) { throw 'Could not read the profiles file.' }
 
 $updated = $original
 $endOfTable = $table.Extent.EndOffset - 1
@@ -77,6 +75,7 @@ if ($updated -ceq $original) {
     return
 }
 & (Join-Path $PSScriptRoot 'Assert-Profiles.ps1') $profiles
+$parseErrors = $null
 $null = [Management.Automation.Language.Parser]::ParseInput($updated, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Could not apply the change to the profiles file.' }
 Write-LocalFile -Path $Path -Content $updated -ExpectedHash $originalHash

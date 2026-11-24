@@ -21,7 +21,7 @@ if ($createConfig) {
     } while ((Read-Host 'Add another profile? [y/N]').Trim() -match '^y(?:es)?$')
 }
 else {
-    $profiles = Import-PowerShellDataFile -LiteralPath $configPath
+    $profiles = (Read-ProfileFile $configPath).Profiles
 }
 & (Join-Path $PSScriptRoot 'internal/Assert-Profiles.ps1') $profiles
 
