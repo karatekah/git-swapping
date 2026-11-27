@@ -83,10 +83,10 @@ Esegui `list`, `add`, `edit` o `remove` da qualsiasi directory. Questi comandi g
 
 Gli errori generano eccezioni PowerShell, gestibili con `try` / `catch`. La funzione non chiude il terminale. `use` conferma il salvataggio; esegui `check` per rilevare altre impostazioni che sovrascrivono l'identità.
 
-Nella versione di sviluppo, `git-profile audit 'C:\Progetti'` controlla la cartella e le sottocartelle senza connessione e in sola lettura. Se ometti il percorso, parte dalla cartella corrente. Salta le sottocartelle collegate. Il risultato `OK` indica che la configurazione locale ha superato i controlli. Il comando seguente mostra tutti i motivi dei casi da esaminare.
+Nella versione di sviluppo, `git-profile audit 'C:\Progetti'` controlla la cartella e le sottocartelle senza connessione e in sola lettura. Se ometti il percorso, parte dalla cartella corrente. Salta le sottocartelle collegate. Il risultato `OK` indica che la configurazione locale ha superato i controlli. Per ogni riga `Review`, `NextAction` indica cosa fare nell'albero di lavoro. Un'impostazione che sovrascrive l'identità o un conflitto con il remoto ha la precedenza. Il controllo consiglia `git-profile use -Auto -WhatIf` dopo aver verificato gli URL proposti. Il comando seguente include tutti i motivi.
 
 ```powershell
-git-profile audit 'C:\Progetti' | Where-Object Result -eq 'Review' | Format-List
+git-profile audit 'C:\Progetti' | Where-Object Result -eq 'Review' | Format-List *
 ```
 
 Se `git push` senza argomenti seleziona una destinazione diversa da `origin`, `check` e `status` indicano l'impostazione Git responsabile e la sua provenienza. La verifica avviene senza connessione. `use` richiede che `origin` sia definito direttamente nella configurazione Git locale. In presenza di una regola `includeIf.hasconfig:remote.*.url`, configura `origin` con l'account HTTPS desiderato prima di eseguire `use`.

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Add `git-profile audit [FOLDER]` to report the expected profile and configuration issues for Git working trees under a folder.
+- Include a `NextAction` for each `Review`, with a validated profile preview or a setting to inspect.
 
 ## v0.1.0-alpha.3
 

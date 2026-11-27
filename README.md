@@ -86,10 +86,10 @@ Run `list`, `add`, `edit`, or `remove` from any directory. These commands manage
 
 Errors throw a PowerShell exception; automation can use `try` / `catch`. The function never calls `exit` to close your terminal. `use` confirms that configuration was saved; run `check` to detect additional identity overrides.
 
-In the development version, `git-profile audit 'C:\Projects'` checks the folder and its subfolders offline, with read-only access. It starts in the current folder when you omit the path and skips linked subdirectories. An `OK` result means the local configuration passed the checks. The following command shows the full reasons for the working trees that need attention.
+In the development version, `git-profile audit 'C:\Projects'` checks the folder and its subfolders offline, with read-only access. It starts in the current folder when you omit the path and skips linked subdirectories. An `OK` result means the local configuration passed the checks. Each `Review` has a `NextAction` to take in that working tree. An identity override or a conflicting remote takes priority. Audit recommends `git-profile use -Auto -WhatIf` after checking the proposed URLs. The following command includes the full reasons.
 
 ```powershell
-git-profile audit 'C:\Projects' | Where-Object Result -eq 'Review' | Format-List
+git-profile audit 'C:\Projects' | Where-Object Result -eq 'Review' | Format-List *
 ```
 
 If `git push` with no arguments selects a destination other than `origin`, `check` and `status` report the Git setting responsible and its source. Remote selection is checked offline. `use` requires `origin` to be defined directly in the local Git config. If an `includeIf.hasconfig:remote.*.url` rule depends on remote URLs, set `origin` to the intended HTTPS account before running `use`.

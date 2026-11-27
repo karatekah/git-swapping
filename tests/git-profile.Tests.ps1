@@ -335,13 +335,54 @@ try {
             Assert-True (@($rows | Where-Object { $_.Result -eq 'OK' -and $_.Profile -eq 'personal' }).Count -eq 2) 'Audit missed a configured working tree.'
             $nestedRow = $rows | Where-Object Repository -eq $review
             Assert-True ($nestedRow.Profile -eq 'personal' -and $nestedRow.Result -eq 'Review' -and $nestedRow.Reason -match 'local identity differs') 'Audit missed the nested identity mismatch.'
+            Assert-True ($nestedRow.NextAction -ceq 'git-profile use -Auto -WhatIf') 'Audit should recommend the validated preview.'
+            Assert-True (-not $junctionRoot.NextAction) 'A healthy worktree received an action.'
             $credentialRow = $rows | Where-Object Repository -eq $credential
             Assert-True ($credentialRow.Result -eq 'Review' -and $credentialRow.Reason -notmatch 'audit-secret') 'Audit exposed a credential or missed an unsupported remote.'
+            Assert-True ($credentialRow.NextAction -match 'GitHub HTTPS' -and $credentialRow.NextAction -notmatch 'audit-secret') 'The origin recommendation is missing or unsafe.'
             Assert-True ((Get-Location).Path -eq $review -and (Get-ConfigSnapshot) -eq $reviewBefore) 'Audit changed the caller location or nested repository configuration.'
             Set-Location -LiteralPath $healthy
             Assert-True ((Get-ConfigSnapshot) -eq $healthyBefore) 'Audit changed the configured repository.'
         }
         finally { Pop-Location }
+    }
+    Test-Case 'audit prioritizes overrides and rejects previews blocked by a planned URL rewrite' {
+        New-TestRepo
+        $env:GIT_AUTHOR_EMAIL = 'override@example.org'
+        try {
+            $row = git-profile audit .
+            Assert-True ($row.NextAction -ceq 'Review GIT_AUTHOR_EMAIL.') 'An environment override should take priority over local repair.'
+        }
+        finally { Remove-Item Env:GIT_AUTHOR_EMAIL }
+        $null = Invoke-TestGit @('config', 'committer.email', 'override@example.org')
+        Assert-True ((git-profile audit .).NextAction -match 'committer.email') 'A role-specific override was missed.'
+        $null = Invoke-TestGit @('config', '--unset', 'committer.email')
+        $null = Invoke-TestGit @('config', 'remote.pushDefault', 'upstream')
+        Assert-True ((git-profile audit .).NextAction -match 'remote.pushDefault') 'The push override should be inspected first.'
+        $null = Invoke-TestGit @('config', '--unset', 'remote.pushDefault')
+        $null = Invoke-TestGit @('config', 'url.https://github.com/someone-else/.insteadOf', 'https://personal-user@github.com/personal-user/')
+        $before = Get-ConfigSnapshot
+        $row = git-profile audit .
+        Assert-True ($row.Result -eq 'Review' -and $row.Reason -match 'rewrite' -and $row.NextAction -match 'origin URL rules') 'Audit recommended a preview that use would reject.'
+        Assert-True ((Get-ConfigSnapshot) -eq $before) 'Planning an action changed Git configuration.'
+        Assert-Fails { git-profile use -Auto -WhatIf } 'rewrite'
+    }
+    Test-Case 'audit distinguishes a direct local identity from included and command-scope overrides' {
+        New-TestRepo
+        $null = Invoke-TestGit @('config', 'user.email', 'local@example.org')
+        Assert-True ((git-profile audit .).NextAction -ceq 'git-profile use -Auto -WhatIf') 'A direct local setting should allow a preview.'
+        $include = Join-Path (Get-Location).Path 'identity.config'
+        $null = Invoke-TestGit @('config', '--file', $include, 'user.email', 'included@example.org')
+        $null = Invoke-TestGit @('config', 'include.path', $include)
+        $row = git-profile audit .
+        Assert-True ($row.NextAction -match 'user.email.*identity\.config' -and $row.Reason -notmatch 'Run git-profile use') 'Audit should identify the included setting.'
+        $env:GIT_CONFIG_COUNT = '1'
+        $env:GIT_CONFIG_KEY_0 = 'user.email'
+        $env:GIT_CONFIG_VALUE_0 = 'command@example.org'
+        try {
+            Assert-True ((git-profile audit .).NextAction -match 'user.email.*command') 'Command-scope overrides should take priority over local repairs.'
+        }
+        finally { Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0 }
     }
     Test-Case 'default push remote follows Git precedence even on an unborn branch' {
         New-TestRepo

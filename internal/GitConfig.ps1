@@ -68,7 +68,7 @@ function Get-ProfileGitSetting {
     $value = Invoke-ProfileGit @('config', '--null', '--show-scope', '--show-origin', '--get', $Key) -AllowMissing -Raw
     if ($null -eq $value) { return }
     $scope, $source, $setting = $value.Split([char]0)
-    [pscustomobject]@{ Value = $setting[0]; Source = "$Key [$scope, $source]" }
+    [pscustomobject]@{ Value = $setting[0]; Source = "$Key [$scope, $source]"; Scope = $scope; Origin = $source }
 }
 
 function Get-ProfileGitValues {
@@ -118,12 +118,47 @@ function Get-ProfileIdentitySource {
     param([string]$Role, [string]$Field)
 
     $environmentKey = "GIT_$($Role)_$($Field.ToUpperInvariant())"
-    if (Test-Path -LiteralPath "Env:$environmentKey") { return $environmentKey }
+    if (Test-Path -LiteralPath "Env:$environmentKey") {
+        return [pscustomobject]@{ Source = $environmentKey; OverridesUser = $true; Value = [Environment]::GetEnvironmentVariable($environmentKey) }
+    }
     $setting = Get-ProfileGitSetting "$($Role.ToLowerInvariant()).$Field"
-    if (-not $setting) { $setting = Get-ProfileGitSetting "user.$Field" }
-    if ($setting) { return $setting.Source }
-    if ($Field -eq 'email' -and (Test-Path -LiteralPath 'Env:EMAIL')) { return 'EMAIL' }
-    'Git defaults'
+    if ($setting) { return [pscustomobject]@{ Source = $setting.Source; OverridesUser = $true; Value = $setting.Value } }
+    $setting = Get-ProfileGitSetting "user.$Field"
+    $source = if ($setting) { $setting.Source }
+              elseif ($Field -eq 'email' -and (Test-Path -LiteralPath 'Env:EMAIL')) { 'EMAIL' }
+              else { 'Git defaults' }
+    [pscustomobject]@{ Source = $source; OverridesUser = $false }
+}
+
+function Get-ProfileConfigPath {
+    $commonDir = Invoke-ProfileGit @('rev-parse', '--git-common-dir')
+    $path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath((Join-Path $commonDir 'config'))
+    if ((Get-Item -LiteralPath $path -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw 'This alpha cannot modify a linked Git config file.'
+    }
+    $path
+}
+
+function Get-ProfileUsePlan {
+    param($ConfigPath, $RawFetch, $RawPush, $Origin, $AccountProfile)
+
+    $localFetch = @(Get-ProfileGitValues @('config', '--file', $ConfigPath, '--null', '--get-all', 'remote.origin.url'))
+    $localPush = @(Get-ProfileGitValues @('config', '--file', $ConfigPath, '--null', '--get-all', 'remote.origin.pushurl'))
+    if ($localFetch.Count -ne 1 -or $localFetch[0] -cne $RawFetch[0] -or
+        $localPush.Count -ne $RawPush.Count -or $localPush[0] -cne $RawPush[0]) {
+        throw 'Configure origin directly in the local Git config before applying a profile.'
+    }
+    $account = $AccountProfile.GitHub
+    $settings = [ordered]@{
+        'user.name' = $AccountProfile.Name
+        'user.email' = $AccountProfile.Email
+        'remote.origin.url' = $RawFetch[0] -replace '^https://(?:[^@/]+@)?github\.com/', "https://$account@github.com/"
+    }
+    if ($RawPush.Count) {
+        $settings['remote.origin.pushurl'] = $RawPush[0] -replace '^https://(?:[^@/]+@)?github\.com/', "https://$account@github.com/"
+    }
+    $urls = Test-ProfileUrls -Settings $settings -Fetch $RawFetch[0] -Push $RawPush[0] -Origin $Origin -Account $account
+    [pscustomobject]@{ Settings = $settings; Fetch = $urls.Fetch; Push = $urls.Push }
 }
 
 function Test-ProfileUrls {

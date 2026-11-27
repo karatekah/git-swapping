@@ -72,16 +72,16 @@ function git-profile {
 
         try { $inWorkTree, $prefix = Invoke-ProfileGit @('rev-parse', '--is-inside-work-tree', '--show-prefix') }
         catch { $inWorkTree = $false }
-        if ($inWorkTree -ne 'true') { throw 'Run this command inside a Git working tree.' }
+        if ($inWorkTree -ne 'true') {
+            if ($AuditResult) { $AuditResult.NextAction = 'Run git rev-parse --show-toplevel in this folder to inspect the Git diagnostic.' }
+            throw 'Run this command inside a Git working tree.'
+        }
         if ($AuditResult -and $prefix) {
+            $AuditResult.NextAction = 'Check the .git entry in this folder against git rev-parse --show-toplevel.'
             throw 'Git resolved a different working tree for this folder.'
         }
         if ($Action -eq 'use') {
-            $commonDir = Invoke-ProfileGit @('rev-parse', '--git-common-dir')
-            $gitConfigPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath((Join-Path $commonDir 'config'))
-            if ((Get-Item -LiteralPath $gitConfigPath).Attributes -band [IO.FileAttributes]::ReparsePoint) {
-                throw 'This alpha cannot modify a linked Git config file.'
-            }
+            $gitConfigPath = Get-ProfileConfigPath
             $originalConfig = [IO.File]::ReadAllBytes($gitConfigPath)
         }
 
@@ -90,6 +90,7 @@ function git-profile {
         $rawFetch = @(Get-ProfileGitValues @('config', '--null', '--get-all', 'remote.origin.url'))
         $rawPush = @(Get-ProfileGitValues @('config', '--null', '--get-all', 'remote.origin.pushurl'))
         if ($rawFetch.Count -ne 1 -or $rawPush.Count -gt 1) {
+            if ($AuditResult) { $AuditResult.NextAction = 'Configure one fetch URL and at most one push URL for origin.' }
             throw 'Configure origin with one fetch URL and at most one explicit push URL.'
         }
         $origin = Get-ProfileRemote $rawFetch[0]
@@ -98,6 +99,7 @@ function git-profile {
         $fetch = @(Invoke-ProfileGit @('remote', 'get-url', '--all', 'origin'))
         $push = @(Invoke-ProfileGit @('remote', 'get-url', '--push', '--all', 'origin'))
         if ($fetch.Count -ne 1 -or $push.Count -ne 1) {
+            if ($AuditResult) { $AuditResult.NextAction = 'Review the effective fetch and push URLs for origin.' }
             throw 'This alpha requires exactly one effective fetch URL and one effective push URL.'
         }
 
@@ -131,21 +133,8 @@ function git-profile {
                 throw 'Automatic selection requires origin as the default push remote. Run git-profile status to find the overriding setting.'
             }
 
-            $localFetch = @(Get-ProfileGitValues @('config', '--file', $gitConfigPath, '--null', '--get-all', 'remote.origin.url'))
-            $localPush = @(Get-ProfileGitValues @('config', '--file', $gitConfigPath, '--null', '--get-all', 'remote.origin.pushurl'))
-            if ($localFetch.Count -ne 1 -or $localFetch[0] -cne $rawFetch[0] -or
-                $localPush.Count -ne $rawPush.Count -or $localPush[0] -cne $rawPush[0]) {
-                throw 'Configure origin directly in the local Git config before applying a profile.'
-            }
-            $settings = [ordered]@{
-                'user.name' = $p.Name
-                'user.email' = $p.Email
-                'remote.origin.url' = $rawFetch[0] -replace '^https://(?:[^@/]+@)?github\.com/', "https://$($p.GitHub)@github.com/"
-            }
-            if ($rawPush.Count) {
-                $settings['remote.origin.pushurl'] = $rawPush[0] -replace '^https://(?:[^@/]+@)?github\.com/', "https://$($p.GitHub)@github.com/"
-            }
-            $planned = Test-ProfileUrls -Settings $settings -Fetch $rawFetch[0] -Push $rawPush[0] -Origin $origin -Account $p.GitHub
+            $planned = Get-ProfileUsePlan $gitConfigPath $rawFetch $rawPush $origin $p
+            $settings = $planned.Settings
             if ($WhatIfPreference) {
                 Write-Host "Profile : $Profile"
                 Write-Host "Name    : $name -> $($p.Name)"
@@ -188,15 +177,20 @@ function git-profile {
         }
 
         $issues = [Collections.Generic.List[string]]::new()
+        $nextAction = ''
+        $needsProfile = $false
         if (-not $origin) {
+            $nextAction = 'Review origin and configure a GitHub HTTPS URL.'
             $issues.Add('Configure origin with a GitHub HTTPS URL without credentials, query strings, or fragments.')
         }
         elseif (-not $expectedProfile) {
+            $nextAction = "Check the owner of origin and the saved profiles with git-profile list."
             $issues.Add("No profile is configured for owner '$($origin.Owner)'. Run git-profile list or add a profile.")
         }
 
         $pushSetting = Get-ProfilePushRemote
         if ($pushSetting.Value -cne 'origin') {
+            if (-not $nextAction) { $nextAction = "Review $($pushSetting.Source) before pushing." }
             $destination = 'a destination without a configured remote'
             if ((Invoke-ProfileGit @('remote')) -ccontains $pushSetting.Value -and $pushSetting.Value -match '\A[\p{L}\p{N}_.\-/]+\z') {
                 $destination = "remote '$($pushSetting.Value)'"
@@ -207,22 +201,36 @@ function git-profile {
 
         $p = if ($expectedProfile) { $profiles[$expectedProfile] }
         if ($p) {
+            $applyHint = if (-not $AuditResult) { " Run git-profile use $expectedProfile." }
             foreach ($remote in $parsed) {
                 try {
                     Assert-ProfileDestination $remote $p.GitHub $origin.Repo
                     if ($remote.Account -ne $p.GitHub) {
-                        $issues.Add("The username in an origin URL does not match '$($p.GitHub)'. Run git-profile use $expectedProfile.")
+                        $needsProfile = $true
+                        $issues.Add("The username in an origin URL does not match '$($p.GitHub)'.$applyHint")
                     }
                 }
-                catch { $issues.Add($_.Exception.Message) }
+                catch {
+                    if (-not $nextAction) { $nextAction = 'Review the fetch and push destinations for origin, including URL rewrites.' }
+                    $issues.Add($_.Exception.Message)
+                }
             }
             if ($name -cne $p.Name -or $email -cne $p.Email) {
-                $issues.Add("The local identity differs from profile '$expectedProfile'. Run git-profile use $expectedProfile.")
+                $needsProfile = $true
+                $issues.Add("The local identity differs from profile '$expectedProfile'.$applyHint")
             }
             foreach ($field in @('name', 'email')) {
                 $setting = Get-ProfileGitSetting "user.$field"
                 if ($setting -and $setting.Value -cne $p[$field]) {
                     $issues.Add("Effective user.$field differs from profile '$expectedProfile'. Review $($setting.Source).")
+                    if ($AuditResult -and -not $nextAction) {
+                        $overridesLocal = $setting.Scope -in @('worktree', 'command')
+                        if ($setting.Scope -eq 'local') {
+                            $direct = Invoke-ProfileGit @('config', '--local', '--no-includes', '--null', '--show-origin', '--get', "user.$field") -Raw -AllowMissing
+                            $overridesLocal = -not $direct -or $direct.Split([char]0)[0] -cne $setting.Origin
+                        }
+                        if ($overridesLocal) { $nextAction = "Review $($setting.Source)." }
+                    }
                 }
             }
         }
@@ -237,17 +245,43 @@ function git-profile {
                     foreach ($field in @('name', 'email')) {
                         if ($actual[$field] -cne $p[$field]) {
                             $source = Get-ProfileIdentitySource $role $field
-                            $issues.Add("Effective $role $field differs from profile '$expectedProfile'. Review $source.")
+                            $issues.Add("Effective $role $field differs from profile '$expectedProfile'. Review $($source.Source).")
+                            if ($source.OverridesUser -and -not $nextAction) { $nextAction = "Review $($source.Source)." }
                         }
                     }
                 }
             }
             else {
                 $issues.Add("Git could not resolve the effective $role identity. Check the configured name and email.")
+                if ($AuditResult -and $p -and -not $nextAction) {
+                    foreach ($field in @('name', 'email')) {
+                        $source = Get-ProfileIdentitySource $role $field
+                        if ($source.OverridesUser -and $source.Value -cne $p[$field]) {
+                            $nextAction = "Review $($source.Source)."
+                            break
+                        }
+                    }
+                    if (-not $nextAction -and -not $needsProfile) { $nextAction = "Review the effective $role identity with git-profile status." }
+                }
             }
         }
 
-        if ($issues.Count) { throw (($issues | Select-Object -Unique) -join [Environment]::NewLine) }
+        if ($issues.Count) {
+            if ($AuditResult) {
+                if (-not $nextAction -and $needsProfile) {
+                    try {
+                        $null = Get-ProfileUsePlan (Get-ProfileConfigPath) $rawFetch $rawPush $origin $p
+                        $nextAction = 'git-profile use -Auto -WhatIf'
+                    }
+                    catch {
+                        $issues.Add($_.Exception.Message)
+                        $nextAction = 'Inspect the local Git configuration and origin URL rules.'
+                    }
+                }
+                $AuditResult.NextAction = $nextAction
+            }
+            throw (($issues | Select-Object -Unique) -join [Environment]::NewLine)
+        }
         if ($AuditResult) { return }
         Write-Host "OK  Profile : $expectedProfile" -ForegroundColor Green
         Write-Host "OK  GitHub  : $($p.GitHub)" -ForegroundColor Green
@@ -279,6 +313,7 @@ function git-profile {
             Profile = $null
             Result = 'OK'
             Reason = ''
+            NextAction = ''
         }
         try {
             Push-Location -LiteralPath $row.Repository -ErrorAction Stop
@@ -288,7 +323,10 @@ function git-profile {
         catch {
             $row.Result = 'Review'
             $row.Reason = $_.Exception.Message -replace '\r?\n', '; '
+            if (-not $row.NextAction) { $row.NextAction = 'Run git-profile status in this working tree and inspect the reported error.' }
         }
+        $display = [Management.Automation.PSPropertySet]::new('DefaultDisplayPropertySet', [string[]]@('Repository', 'Profile', 'Result', 'NextAction'))
+        Add-Member -InputObject $row -MemberType MemberSet -Name PSStandardMembers -Value ([Management.Automation.PSMemberInfo[]]@($display))
         $row
     }
     if (-not $found) { Write-Host 'No Git working trees found.' }
