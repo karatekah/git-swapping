@@ -10,7 +10,7 @@
 
 Profili Git per repository da PowerShell.
 
-[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](../releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/piattaforma-Windows-64748b?style=flat-square)](#requisiti)
+[![v0.1.0-alpha.3](https://img.shields.io/badge/release-v0.1.0--alpha.3-256b56?style=flat-square)](../releases/v0.1.0-alpha.3.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/piattaforma-Windows-64748b?style=flat-square)](#requisiti)
 
 [Avvio rapido](#avvio-rapido) · [Comandi](#comandi) · [Note alfa.3](../releases/v0.1.0-alpha.3.md) · [Segnala un errore](https://github.com/karatekah/git-swapping/issues)
 
@@ -77,10 +77,17 @@ git fetch origin
 | `git-profile use -Auto -WhatIf` | Vedere il profilo, l'identità e gli URL effettivi prima di salvare. Funziona anche con un profilo esplicito |
 | `git-profile check` | Verificare il profilo, il proprietario e gli URL di `origin`, il remoto predefinito per il push e le identità effettive di autore e committer |
 | `git-profile status` | Mostrare il profilo atteso, le identità effettive e la provenienza delle impostazioni in conflitto |
+| `git-profile audit [CARTELLA]` | Controllare ricorsivamente il profilo atteso e i problemi di configurazione di ogni albero di lavoro Git |
 
 Esegui `list`, `add`, `edit` o `remove` da qualsiasi directory. Questi comandi gestiscono gli account nel file locale `profiles.psd1`. Per applicare un'identità modificata a un repository, esegui `git-profile use PROFILO` al suo interno. Digita `y` per confermare la rimozione o premi Invio per annullarla. Se rimuovi un profilo salvato, i repository conservano l'identità e gli URL già applicati. Se l'elenco è vuoto, puoi creare un nuovo profilo con `add`.
 
 Gli errori generano eccezioni PowerShell, gestibili con `try` / `catch`. La funzione non chiude il terminale. `use` conferma il salvataggio; esegui `check` per rilevare altre impostazioni che sovrascrivono l'identità.
+
+Nella versione di sviluppo, `git-profile audit 'C:\Progetti'` controlla la cartella e le sottocartelle senza connessione e in sola lettura. Se ometti il percorso, parte dalla cartella corrente. Salta le sottocartelle collegate. Il risultato `OK` indica che la configurazione locale ha superato i controlli. Il comando seguente mostra tutti i motivi dei casi da esaminare.
+
+```powershell
+git-profile audit 'C:\Progetti' | Where-Object Result -eq 'Review' | Format-List
+```
 
 Se `git push` senza argomenti seleziona una destinazione diversa da `origin`, `check` e `status` indicano l'impostazione Git responsabile e la sua provenienza. La verifica avviene senza connessione. `use` richiede che `origin` sia definito direttamente nella configurazione Git locale. In presenza di una regola `includeIf.hasconfig:remote.*.url`, configura `origin` con l'account HTTPS desiderato prima di eseguire `use`.
 

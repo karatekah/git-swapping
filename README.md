@@ -10,7 +10,7 @@
 
 Per-repository Git profiles for PowerShell.
 
-[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-256b56?style=flat-square)](docs/releases/v0.1.0-alpha.2.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/platform-Windows-64748b?style=flat-square)](#requirements) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-365b8c?style=flat-square)](#requirements)
+[![v0.1.0-alpha.3](https://img.shields.io/badge/release-v0.1.0--alpha.3-256b56?style=flat-square)](docs/releases/v0.1.0-alpha.3.md) [![CI](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/karatekah/git-swapping/actions/workflows/ci.yml) [![Windows](https://img.shields.io/badge/platform-Windows-64748b?style=flat-square)](#requirements) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207-365b8c?style=flat-square)](#requirements)
 
 [Quick start](#quick-start) · [Commands](#commands) · [Alpha.3 notes](docs/releases/v0.1.0-alpha.3.md) · [Report a bug](https://github.com/karatekah/git-swapping/issues)
 
@@ -80,10 +80,17 @@ git fetch origin
 | `git-profile use -Auto -WhatIf` | Preview the profile, identity and effective URLs without writing. Also works with an explicit profile |
 | `git-profile check` | Verify the profile, `origin` owner and URLs, default push remote, and effective author and committer identities |
 | `git-profile status` | Show the expected profile and effective identities, and identify the source of conflicting settings |
+| `git-profile audit [FOLDER]` | Recursively report the expected profile and configuration issues for each Git working tree |
 
 Run `list`, `add`, `edit`, or `remove` from any directory. These commands manage the accounts in local `profiles.psd1`. To apply an edited identity to a repository, run `git-profile use PROFILE` inside that repository. At the removal prompt, enter `y` to confirm or press Enter to cancel. Removing a saved profile leaves previously applied identities and URLs in their repositories. If the list is empty, `add` can create a new profile.
 
 Errors throw a PowerShell exception; automation can use `try` / `catch`. The function never calls `exit` to close your terminal. `use` confirms that configuration was saved; run `check` to detect additional identity overrides.
+
+In the development version, `git-profile audit 'C:\Projects'` checks the folder and its subfolders offline, with read-only access. It starts in the current folder when you omit the path and skips linked subdirectories. An `OK` result means the local configuration passed the checks. The following command shows the full reasons for the working trees that need attention.
+
+```powershell
+git-profile audit 'C:\Projects' | Where-Object Result -eq 'Review' | Format-List
+```
 
 If `git push` with no arguments selects a destination other than `origin`, `check` and `status` report the Git setting responsible and its source. Remote selection is checked offline. `use` requires `origin` to be defined directly in the local Git config. If an `includeIf.hasconfig:remote.*.url` rule depends on remote URLs, set `origin` to the intended HTTPS account before running `use`.
 

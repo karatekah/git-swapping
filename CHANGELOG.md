@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add `git-profile audit [FOLDER]` to report the expected profile and configuration issues for Git working trees under a folder.
+
 ## v0.1.0-alpha.3
 
 - Check the remote selected by `git push` with no arguments and report the overriding Git setting when the destination differs from `origin`.

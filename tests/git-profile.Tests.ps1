@@ -298,6 +298,51 @@ try {
         $status = (git-profile status 6>&1) -join "`n"
         Assert-True ($status -match 'Default push remote : origin') 'Status does not show the default push remote.'
     }
+    Test-Case 'audit reports nested repositories and linked worktrees without changing configuration' {
+        Push-Location
+        try {
+            $auditRoot = Join-Path $testRoot 'audit-fixtures'
+            $healthy = Join-Path $auditRoot 'healthy'
+            $review = Join-Path $healthy 'nested [fixture]'
+            $linked = Join-Path $auditRoot 'linked'
+            $credential = Join-Path $auditRoot 'credential'
+            $junction = Join-Path $auditRoot 'junction'
+            $null = Invoke-TestGit @('init', '--quiet', '--template=', $healthy)
+            Set-Location -LiteralPath $healthy
+            $null = Invoke-TestGit @('remote', 'add', 'origin', 'https://github.com/personal-user/demo.git')
+            git-profile use personal 6>$null
+            $null = Invoke-TestGit @('-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'Audit fixture')
+            $null = Invoke-TestGit @('worktree', 'add', '--quiet', '--detach', $linked)
+            $healthyBefore = Get-ConfigSnapshot
+
+            $null = Invoke-TestGit @('init', '--quiet', '--template=', $review)
+            Set-Location -LiteralPath $review
+            $null = Invoke-TestGit @('remote', 'add', 'origin', 'https://personal-user@github.com/personal-user/nested.git')
+            $reviewBefore = Get-ConfigSnapshot
+            $null = Invoke-TestGit @('init', '--quiet', '--template=', $credential)
+            $null = Invoke-TestGit @('-C', $credential, 'remote', 'add', 'origin', 'https://user:audit-secret@github.com/personal-user/demo.git')
+            Rename-Item -LiteralPath (Join-Path $credential '.git') -NewName 'git-marker'
+            Rename-Item -LiteralPath (Join-Path $credential 'git-marker') -NewName '.GIT'
+
+            $null = New-Item -ItemType Junction -Path $junction -Target $healthy
+            try {
+                $rows = @(git-profile audit $auditRoot)
+                $junctionRoot = git-profile audit $junction | Where-Object Repository -eq $junction
+                Assert-True ($junctionRoot.Result -eq 'OK') 'Audit should accept a junction passed as the scan root.'
+            }
+            finally { [IO.Directory]::Delete($junction) }
+            Assert-True ($rows.Count -eq 4) 'Audit should return one row per working tree.'
+            Assert-True (@($rows | Where-Object { $_.Result -eq 'OK' -and $_.Profile -eq 'personal' }).Count -eq 2) 'Audit missed a configured working tree.'
+            $nestedRow = $rows | Where-Object Repository -eq $review
+            Assert-True ($nestedRow.Profile -eq 'personal' -and $nestedRow.Result -eq 'Review' -and $nestedRow.Reason -match 'local identity differs') 'Audit missed the nested identity mismatch.'
+            $credentialRow = $rows | Where-Object Repository -eq $credential
+            Assert-True ($credentialRow.Result -eq 'Review' -and $credentialRow.Reason -notmatch 'audit-secret') 'Audit exposed a credential or missed an unsupported remote.'
+            Assert-True ((Get-Location).Path -eq $review -and (Get-ConfigSnapshot) -eq $reviewBefore) 'Audit changed the caller location or nested repository configuration.'
+            Set-Location -LiteralPath $healthy
+            Assert-True ((Get-ConfigSnapshot) -eq $healthyBefore) 'Audit changed the configured repository.'
+        }
+        finally { Pop-Location }
+    }
     Test-Case 'default push remote follows Git precedence even on an unborn branch' {
         New-TestRepo
         git-profile use personal 6>$null

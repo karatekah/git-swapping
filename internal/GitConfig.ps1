@@ -36,6 +36,32 @@ function Invoke-ProfileGit {
     if ($output.Length) { ($output -replace '\r?\n\z', '') -split '\r?\n' }
 }
 
+function Get-ProfileRepositoryPaths {
+    param([string]$Root)
+
+    $pending = [Collections.Generic.Stack[string]]::new()
+    $pending.Push($Root)
+    while ($pending.Count) {
+        $folder = $pending.Pop()
+        try {
+            $children = [IO.DirectoryInfo]::new($folder).GetDirectories()
+        }
+        catch {
+            Write-Warning ('Could not scan folder: ' + $folder)
+            continue
+        }
+        $marker = [IO.Path]::Combine($folder, '.git')
+        if ([IO.Directory]::Exists($marker) -or [IO.File]::Exists($marker)) {
+            $folder
+        }
+        foreach ($child in $children) {
+            if ($child.Name -ne '.git' -and -not ($child.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                $pending.Push($child.FullName)
+            }
+        }
+    }
+}
+
 function Get-ProfileGitSetting {
     param([string]$Key)
 
